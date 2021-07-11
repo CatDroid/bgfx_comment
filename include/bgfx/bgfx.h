@@ -261,15 +261,15 @@ namespace bgfx
 		/// Uniform types:
 		enum Enum
 		{
-			Sampler, //!< Sampler.
+			Sampler, //!< Sampler. // 0
 			End,     //!< Reserved, do not use.
 
-			Vec4,    //!< 4 floats vector.
-			Mat3,    //!< 3x3 matrix.
-			Mat4,    //!< 4x4 matrix.
+			Vec4,    //!< 4 floats vector. // 2
+			Mat3,    //!< 3x3 matrix.  // 3
+			Mat4,    //!< 4x4 matrix. //4
 
 			Count
-		};
+		}; // 要对应 g_uniformTypeSize    而且COUNT 不能大于  kUniformFragmentBit  = 0x10;  超过 16 参见 renderer_mtl.mm processArguements  UniformBuffer编码类型会吧bit计算上
 	};
 
 	/// Backbuffer ratio enum.
@@ -620,7 +620,7 @@ namespace bgfx
 		                    ///  depth/stencil surface.
 	};
 
-	/// Backbuffer resolution and reset parameters.
+	/// Backbuffer resolution and reset parameters.  后台缓冲区分辨率和重置参数。
 	///
 	/// @attention C99 equivalent is `bgfx_resolution_t`.
 	///
@@ -644,7 +644,7 @@ namespace bgfx
 	{
 		Init();
 
-		/// Select rendering backend. When set to RendererType::Count
+		/// Select rendering backend. When set to RendererType::Count  选择渲染后端。 设置为 RendererType::Count 时 将选择适合平台的默认渲染后端。
 		/// a default rendering backend will be selected appropriate to the platform.
 		/// See: `bgfx::RendererType`
 		RendererType::Enum type;
@@ -681,20 +681,20 @@ namespace bgfx
 		{
 			Limits();
 
-			uint16_t maxEncoders;       //!< Maximum number of encoder threads.
-			uint32_t minResourceCbSize; //!< Minimum resource command buffer size.
-			uint32_t transientVbSize;   //!< Maximum transient vertex buffer size.
-			uint32_t transientIbSize;   //!< Maximum transient index buffer size.
+			uint16_t maxEncoders;       //!< Maximum number of encoder threads.   最大编码器线程数。
+			uint32_t minResourceCbSize; //!< Minimum resource command buffer size.  最小资源?命令缓冲区大小。
+			uint32_t transientVbSize;   //!< Maximum transient vertex buffer size.  最大瞬间顶点缓冲区大小。
+			uint32_t transientIbSize;   //!< Maximum transient index buffer size.  最大瞬间索引缓冲区大小。
 		};
 
 		Limits limits; //!< Configurable runtime limits.
 
-		/// Provide application specific callback interface.
+		/// Provide application specific callback interface. // 提供特定于应用程序的回调接口。
 		/// See: `bgfx::CallbackI`
 		CallbackI* callback;
 
 		/// Custom allocator. When a custom allocator is not
-		/// specified, bgfx uses the CRT allocator. Bgfx assumes
+		/// specified, bgfx uses the CRT allocator. Bgfx assumes 自定义分配器。 当未指定自定义分配器时，bgfx 使用 CRT 分配器。 Bgfx 假设自定义分配器是线程安全的。
 		/// custom allocator is thread safe.
 		bx::AllocatorI* allocator;
 	};
@@ -708,7 +708,7 @@ namespace bgfx
 	///
 	typedef void (*ReleaseFn)(void* _ptr, void* _userData);
 
-	/// Memory must be obtained by calling `bgfx::alloc`, `bgfx::copy`, or `bgfx::makeRef`.
+	/// Memory must be obtained by calling `bgfx::alloc`, `bgfx::copy`, or `bgfx::makeRef`. 必须通过调用 `bgfx::alloc`、`bgfx::copy` 或 `bgfx::makeRef` 来获取内存。
 	///
 	/// @attention It is illegal to create this structure on stack and pass it to any bgfx API.
 	///
@@ -739,9 +739,9 @@ namespace bgfx
 
 		uint16_t vendorId;         //!< Selected GPU vendor PCI id.
 		uint16_t deviceId;         //!< Selected GPU device id.
-		bool     homogeneousDepth; //!< True when NDC depth is in [-1, 1] range, otherwise its [0, 1].
-		bool     originBottomLeft; //!< True when NDC origin is at bottom left.
-		uint8_t  numGPUs;          //!< Number of enumerated GPUs.
+		bool     homogeneousDepth; //!< True when NDC depth is in [-1, 1] range, otherwise its [0, 1].   当 NDC 深度在 [-1, 1] 范围内时为真，否则为 [0, 1]。
+		bool     originBottomLeft; //!< True when NDC origin is at bottom left.                                     当 NDC 原点位于左下角时为真。
+		uint8_t  numGPUs;          //!< Number of enumerated GPUs.                                                   GPU数量
 
 		/// GPU info.
 		///
@@ -764,25 +764,25 @@ namespace bgfx
 			uint32_t maxDrawCalls;            //!< Maximum number of draw calls.
 			uint32_t maxBlits;                //!< Maximum number of blit calls.
 			uint32_t maxTextureSize;          //!< Maximum texture size.
-			uint32_t maxTextureLayers;        //!< Maximum texture layers.
+			uint32_t maxTextureLayers;        //!< Maximum texture layers.      最大纹理层数?
 			uint32_t maxViews;                //!< Maximum number of views.
-			uint32_t maxFrameBuffers;         //!< Maximum number of frame buffer handles.
+			uint32_t maxFrameBuffers;         //!< Maximum number of frame buffer handles.      最大帧缓冲区句柄数
 			uint32_t maxFBAttachments;        //!< Maximum number of frame buffer attachments.
-			uint32_t maxPrograms;             //!< Maximum number of program handles.
-			uint32_t maxShaders;              //!< Maximum number of shader handles.
+			uint32_t maxPrograms;             //!< Maximum number of program handles.        程序 的最大数量。
+			uint32_t maxShaders;              //!< Maximum number of shader handles.        着色器 的最大数量。
 			uint32_t maxTextures;             //!< Maximum number of texture handles.
 			uint32_t maxTextureSamplers;      //!< Maximum number of texture samplers.
-			uint32_t maxComputeBindings;      //!< Maximum number of compute bindings.
-			uint32_t maxVertexLayouts;        //!< Maximum number of vertex format layouts.
-			uint32_t maxVertexStreams;        //!< Maximum number of vertex streams.
-			uint32_t maxIndexBuffers;         //!< Maximum number of index buffer handles.
+			uint32_t maxComputeBindings;      //!< Maximum number of compute bindings.      计算绑定 的 最大数量
+			uint32_t maxVertexLayouts;        //!< Maximum number of vertex format layouts.  顶点格式布局 最大数量
+			uint32_t maxVertexStreams;        //!< Maximum number of vertex streams.             顶点流 最大数目
+			uint32_t maxIndexBuffers;         //!< Maximum number of index buffer handles.  索引buffer句柄 最大数量
 			uint32_t maxVertexBuffers;        //!< Maximum number of vertex buffer handles.
-			uint32_t maxDynamicIndexBuffers;  //!< Maximum number of dynamic index buffer handles.
+			uint32_t maxDynamicIndexBuffers;  //!< Maximum number of dynamic index buffer handles.   动态索引缓冲区句柄的最大数量。
 			uint32_t maxDynamicVertexBuffers; //!< Maximum number of dynamic vertex buffer handles.
 			uint32_t maxUniforms;             //!< Maximum number of uniform handles.
 			uint32_t maxOcclusionQueries;     //!< Maximum number of occlusion query handles.
-			uint32_t maxEncoders;             //!< Maximum number of encoder threads.
-			uint32_t minResourceCbSize;       //!< Minimum resource command buffer size.
+			uint32_t maxEncoders;             //!< Maximum number of encoder threads.       最大编码器线程数。
+			uint32_t minResourceCbSize;       //!< Minimum resource command buffer size.    "最小" 资源命令缓冲区大小 <<< 唯一一个控制最小的
 			uint32_t transientVbSize;         //!< Maximum transient vertex buffer size.
 			uint32_t transientIbSize;         //!< Maximum transient index buffer size.
 		};
@@ -815,7 +815,7 @@ namespace bgfx
 		uint16_t formats[TextureFormat::Count];
 	};
 
-	/// Transient index buffer.
+	/// Transient index buffer.  临时索引缓冲区
 	///
 	/// @attention C99 equivalent is `bgfx_transient_index_buffer_t`.
 	///
@@ -828,7 +828,7 @@ namespace bgfx
 		bool isIndex16;           //!< Index buffer format is 16-bits if true, otherwise it is 32-bit.
 	};
 
-	/// Transient vertex buffer.
+	/// Transient vertex buffer.  临时顶点缓冲区
 	///
 	/// @attention C99 equivalent is `bgfx_transient_vertex_buffer_t`.
 	///
@@ -838,39 +838,39 @@ namespace bgfx
 		uint32_t size;                      //!< Data size.
 		uint32_t startVertex;               //!< First vertex.
 		uint16_t stride;                    //!< Vertex stride.
-		VertexBufferHandle handle;          //!< Vertex buffer handle.
-		VertexLayoutHandle layoutHandle;    //!< Vertex layout handle.
+		VertexBufferHandle handle;          //!< Vertex buffer handle.    顶点缓冲区句柄
+		VertexLayoutHandle layoutHandle;    //!< Vertex layout handle.   顶点格式布局的句柄
 	};
 
-	/// Instance data buffer info.
+	/// Instance data buffer info.  实例数据缓冲区信息。 ??
 	///
 	/// @attention C99 equivalent is `bgfx_instance_data_buffer_t`.
 	///
 	struct InstanceDataBuffer
 	{
-		uint8_t* data;             //!< Pointer to data.
-		uint32_t size;             //!< Data size.
-		uint32_t offset;           //!< Offset in vertex buffer.
-		uint32_t num;              //!< Number of instances.
-		uint16_t stride;           //!< Vertex buffer stride.
-		VertexBufferHandle handle; //!< Vertex buffer object handle.
+		uint8_t* data;             //!< Pointer to data. 数据
+		uint32_t size;             //!< Data size. 数据的大小
+		uint32_t offset;           //!< Offset in vertex buffer.   顶点缓冲区的偏移
+		uint32_t num;              //!< Number of instances.      实例的数目
+		uint16_t stride;           //!< Vertex buffer stride.  顶点缓冲区的对齐
+		VertexBufferHandle handle; //!< Vertex buffer object handle.   跟 TransientVertexBuffer /  临时顶点缓冲区 区别是 不用布局 ??
 	};
 
-	/// Texture info.
+	/// Texture info.  纹理信息。
 	///
 	/// @attention C99 equivalent is `bgfx_texture_info_t`.
 	///
 	struct TextureInfo
 	{
-		TextureFormat::Enum format; //!< Texture format.
-		uint32_t storageSize;       //!< Total amount of bytes required to store texture.
+		TextureFormat::Enum format; //!< Texture format.  纹理格式。
+		uint32_t storageSize;       //!< Total amount of bytes required to store texture. 存储纹理所需的总字节数。
 		uint16_t width;             //!< Texture width.
 		uint16_t height;            //!< Texture height.
 		uint16_t depth;             //!< Texture depth.
-		uint16_t numLayers;         //!< Number of layers in texture array.
-		uint8_t numMips;            //!< Number of MIP maps.
+		uint16_t numLayers;         //!< Number of layers in texture array.  纹理数组中的层数。
+		uint8_t numMips;            //!< Number of MIP maps.  MIP最大数量
 		uint8_t bitsPerPixel;       //!< Format bits per pixel.
-		bool    cubeMap;            //!< Texture is cubemap.
+		bool    cubeMap;            //!< Texture is cubemap.  是否cubemap
 	};
 
 	/// Uniform info.
@@ -879,9 +879,9 @@ namespace bgfx
 	///
 	struct UniformInfo
 	{
-		char name[256];         //!< Uniform name.
-		UniformType::Enum type; //!< Uniform type.
-		uint16_t num;           //!< Number of elements in array.
+		char name[256];         //!< Uniform name.           Uniform变量的名字
+		UniformType::Enum type; //!< Uniform type.              Uniform的类型
+		uint16_t num;           //!< Number of elements in array.  如果是数组。数组的大小
 	};
 
 	/// Frame buffer texture attachment info.
@@ -892,12 +892,12 @@ namespace bgfx
 	{
 		/// Init attachment.
 		///
-		/// @param[in] _handle Render target texture handle.
+		/// @param[in] _handle Render target texture handle.        渲染目标纹理句柄。
 		/// @param[in] _access Access. See `Access::Enum`.
-		/// @param[in] _layer Cubemap side or depth layer/slice to use.
-		/// @param[in] _numLayers Number of texture layer/slice(s) in array to use.
-		/// @param[in] _mip Mip level.
-		/// @param[in] _resolve Resolve flags. See: `BGFX_RESOLVE_*`
+		/// @param[in] _layer Cubemap side or depth layer/slice to use.   ?? 要使用的立方体贴图侧面 或 深度的层/切片。
+		/// @param[in] _numLayers Number of texture layer/slice(s) in array to use.  数组中 纹理 层/片 的数目
+		/// @param[in] _mip Mip level.  mipmap级别
+		/// @param[in] _resolve Resolve flags. See: `BGFX_RESOLVE_*`。?? resolve ??
 		///
 		void init(
 			  TextureHandle _handle
@@ -923,104 +923,104 @@ namespace bgfx
 	struct Transform
 	{
 		float* data;  //!< Pointer to first 4x4 matrix.
-		uint16_t num; //!< Number of matrices.
+		uint16_t num; //!< Number of matrices.      矩阵的数量。
 	};
 
 	/// View id.
-	typedef uint16_t ViewId;
+	typedef uint16_t ViewId; // ？？ View ID
 
-	/// View stats.
+	/// View stats.  View的统计信息 ??
 	///
 	/// @attention C99 equivalent is `bgfx_view_stats_t`.
 	///
 	struct ViewStats
 	{
-		char    name[256];      //!< View name.
-		ViewId  view;           //!< View id.
-		int64_t cpuTimeBegin;   //!< CPU (submit) begin time.
-		int64_t cpuTimeEnd;     //!< CPU (submit) end time.
+		char    name[256];      //!< View name.   视窗 名字
+		ViewId  view;           //!< View id.        视窗 id
+		int64_t cpuTimeBegin;   //!< CPU (submit) begin time.  submit 开始时间（cpu)
+		int64_t cpuTimeEnd;     //!< CPU (submit) end time.   submit 结束时间 (cpu)
 		int64_t gpuTimeBegin;   //!< GPU begin time.
 		int64_t gpuTimeEnd;     //!< GPU end time.
 	};
 
-	/// Encoder stats.
+	/// Encoder stats.  编码器的统计信息 ???
 	///
 	/// @attention C99 equivalent is `bgfx_encoder_stats_t`.
 	///
 	struct EncoderStats
 	{
-		int64_t cpuTimeBegin; //!< Encoder thread CPU submit begin time.
-		int64_t cpuTimeEnd;   //!< Encoder thread CPU submit end time.
+		int64_t cpuTimeBegin; //!< Encoder thread CPU submit begin time.   编码线程cpu submit开始时间
+		int64_t cpuTimeEnd;   //!< Encoder thread CPU submit end time.   编码线程cpu submit结束时间
 	};
 
-	/// Renderer statistics data.
+	/// Renderer statistics data.  渲染器统计数据。
 	///
 	/// @attention C99 equivalent is `bgfx_stats_t`.
 	///
-	/// @remarks All time values are high-resolution timestamps, while
-	///   time frequencies define timestamps-per-second for that hardware.
+	/// @remarks All time values are high-resolution timestamps, while          所有时间值都是高分辨率时间戳，
+	///   time frequencies define timestamps-per-second for that hardware.    而时间频率定义了该硬件的每秒时间戳。
 	struct Stats
 	{
-		int64_t cpuTimeFrame;               //!< CPU time between two `bgfx::frame` calls.
-		int64_t cpuTimeBegin;               //!< Render thread CPU submit begin time.
-		int64_t cpuTimeEnd;                 //!< Render thread CPU submit end time.
-		int64_t cpuTimerFreq;               //!< CPU timer frequency. Timestamps-per-second
+		int64_t cpuTimeFrame;               //!< CPU time between two `bgfx::frame` calls.          两次 `bgfx::frame` 调用之间的 CPU 时间。
+		int64_t cpuTimeBegin;               //!< Render thread CPU submit begin time.               渲染线程 CPU 提交(CPU submit ) 开始时间。
+		int64_t cpuTimeEnd;                 //!< Render thread CPU submit end time.                 渲染线程 CPU 提交(CPU submit ) 结束时间。
+		int64_t cpuTimerFreq;               //!< CPU timer frequency. Timestamps-per-second CPU 定时器频率。 每秒时间戳        ?? 上面的时间戳单位都是这个 ??
 
-		int64_t gpuTimeBegin;               //!< GPU frame begin time.
-		int64_t gpuTimeEnd;                 //!< GPU frame end time.
-		int64_t gpuTimerFreq;               //!< GPU timer frequency.
+		int64_t gpuTimeBegin;               //!< GPU frame begin time.                                  GPU 帧开始时间
+		int64_t gpuTimeEnd;                 //!< GPU frame end time.                                    GPU 帧结束时间。
+		int64_t gpuTimerFreq;               //!< GPU timer frequency.                                   GPU 计时器频率。
 
-		int64_t waitRender;                 //!< Time spent waiting for render backend thread to finish issuing
-		                                    //!  draw commands to underlying graphics API.
-		int64_t waitSubmit;                 //!< Time spent waiting for submit thread to advance to next frame.
+		int64_t waitRender;                 //!< Time spent waiting for render backend thread to finish issuing  等待"渲染后端线程render backend thread " 完成向 "底层图形 API"
+		                                    //!  draw commands to underlying graphics API.                            发出"绘制命令draw commands "所花费的时间。
+		int64_t waitSubmit;                 //!< Time spent waiting for submit thread to advance to next frame. 等待"提交线程submit thread t"前进advance 到下一帧所花费的时间。
 
-		uint32_t numDraw;                   //!< Number of draw calls submitted.
-		uint32_t numCompute;                //!< Number of compute calls submitted.
-		uint32_t numBlit;                   //!< Number of blit calls submitted.
-		uint32_t maxGpuLatency;             //!< GPU driver latency.
+		uint32_t numDraw;                   //!< Number of draw calls submitted.            提交的绘制调用数目
+		uint32_t numCompute;                //!< Number of compute calls submitted.     提交的计算调用数目
+		uint32_t numBlit;                   //!< Number of blit calls submitted.            提交的 blit 调用数目
+		uint32_t maxGpuLatency;             //!< GPU driver latency.                                ??? GPU 驱动程序延迟 ??
 
-		uint16_t numDynamicIndexBuffers;    //!< Number of used dynamic index buffers.
+		uint16_t numDynamicIndexBuffers;    //!< Number of used dynamic index buffers.          使用的“动态”索引缓冲区的数量 ？？？
 		uint16_t numDynamicVertexBuffers;   //!< Number of used dynamic vertex buffers.
 		uint16_t numFrameBuffers;           //!< Number of used frame buffers.
-		uint16_t numIndexBuffers;           //!< Number of used index buffers.
-		uint16_t numOcclusionQueries;       //!< Number of used occlusion queries.
+		uint16_t numIndexBuffers;           //!< Number of used index buffers.                      使用的索引缓冲区的数量
+		uint16_t numOcclusionQueries;       //!< Number of used occlusion queries.    遮挡查询。
 		uint16_t numPrograms;               //!< Number of used programs.
 		uint16_t numShaders;                //!< Number of used shaders.
 		uint16_t numTextures;               //!< Number of used textures.
-		uint16_t numUniforms;               //!< Number of used uniforms.
+		uint16_t numUniforms;               //!< Number of used uniforms.                    uniforms 的使用数量。
 		uint16_t numVertexBuffers;          //!< Number of used vertex buffers.
 		uint16_t numVertexLayouts;          //!< Number of used vertex layouts.
 
 		int64_t textureMemoryUsed;          //!< Estimate of texture memory used.
 		int64_t rtMemoryUsed;               //!< Estimate of render target memory used.
-		int32_t transientVbUsed;            //!< Amount of transient vertex buffer used.
-		int32_t transientIbUsed;            //!< Amount of transient index buffer used.
+		int32_t transientVbUsed;            //!< Amount of transient vertex buffer used.        使用的临时顶点缓冲区的数量。
+		int32_t transientIbUsed;            //!< Amount of transient index buffer used.     使用的临时索引缓冲区的数量。
 
-		uint32_t numPrims[Topology::Count]; //!< Number of primitives rendered.
+		uint32_t numPrims[Topology::Count]; //!< Number of primitives rendered. 渲染的图元数。
 
 		int64_t gpuMemoryMax;               //!< Maximum available GPU memory for application.
 		int64_t gpuMemoryUsed;              //!< Amount of GPU memory used by the application.
 
-		uint16_t width;                     //!< Backbuffer width in pixels.
+		uint16_t width;                     //!< Backbuffer width in pixels.        后台缓冲区宽度（以像素为单位）。
 		uint16_t height;                    //!< Backbuffer height in pixels.
 		uint16_t textWidth;                 //!< Debug text width in characters.
 		uint16_t textHeight;                //!< Debug text height in characters.
 
-		uint16_t   numViews;                //!< Number of view stats.
-		ViewStats* viewStats;               //!< Array of View stats.
+		uint16_t   numViews;                //!< Number of view stats.  ViewStats数组 长度
+		ViewStats* viewStats;               //!< Array of View stats.     ViewStats数组
 
 		uint8_t       numEncoders;          //!< Number of encoders used during frame.
 		EncoderStats* encoderStats;         //!< Array of encoder stats.
 	};
 
-	/// Encoders are used for submitting draw calls from multiple threads. Only one encoder
-	/// per thread should be used. Use `bgfx::begin()` to obtain an encoder for a thread.
+	/// Encoders are used for submitting draw calls from multiple threads. Only one encoder   编码器用于从多个线程提交绘制调用。
+	/// per thread should be used. Use `bgfx::begin()` to obtain an encoder for a thread.           每个线程只能使用一个编码器。 使用 `bgfx::begin()` 获取线程的编码器。
 	///
 	/// @attention C99 equivalent is `bgfx_encoder`.
 	///
 	struct Encoder
 	{
-		/// Sets a debug marker. This allows you to group
+		/// Sets a debug marker. This allows you to group  设置调试标记。 这允许您将图形调用 组合在一起，以便在图形调试工具中轻松浏览。
 		/// graphics calls together for easy browsing in
 		/// graphics debugging tools.
 		///
@@ -1028,19 +1028,37 @@ namespace bgfx
 		///
 		void setMarker(const char* _marker);
 
-		/// Set render states for draw primitive.
+        /*
+         defines.h
+         
+         // 默认状态是写入 RGB、alpha 和深度，深度  深度测试使能并用less对比
+         // 使用顺时针剔除和 MSAA（仅当可写入MSAA 帧缓冲区时?? ，否则忽略此标志）
+         //
+         /// Default state is write to RGB, alpha, and depth with depth test less enabled, with clockwise
+         /// culling and MSAA (when writing into MSAA frame buffer, otherwise this flag is ignored).
+         
+          BGFX_STATE_DEFAULT (0 \
+             | BGFX_STATE_WRITE_RGB \
+             | BGFX_STATE_WRITE_A \
+             | BGFX_STATE_WRITE_Z \
+             | BGFX_STATE_DEPTH_TEST_LESS \
+             | BGFX_STATE_CULL_CW \
+             | BGFX_STATE_MSAA \
+         
+         */
+		/// Set render states for draw primitive. 为绘制基元设置 渲染状态。
 		///
-		/// @param[in] _state State flags. Default state for primitive type is
+		/// @param[in] _state State flags. Default state for primitive type is  图元类型的默认状态是三角形。
 		///   triangles. See: `BGFX_STATE_DEFAULT`.
 		///   - `BGFX_STATE_DEPTH_TEST_*` - Depth test function.
 		///   - `BGFX_STATE_BLEND_*` - See remark 1 about BGFX_STATE_BLEND_FUNC.
 		///   - `BGFX_STATE_BLEND_EQUATION_*` - See remark 2.
 		///   - `BGFX_STATE_CULL_*` - Backface culling mode.
 		///   - `BGFX_STATE_WRITE_*` - Enable R, G, B, A or Z write.
-		///   - `BGFX_STATE_MSAA` - Enable hardware multisample antialiasing.
-		///   - `BGFX_STATE_PT_[TRISTRIP/LINES/POINTS]` - Primitive type.
+		///   - `BGFX_STATE_MSAA` - Enable hardware multisample antialiasing. 启用硬件多重采样抗锯齿。
+		///   - `BGFX_STATE_PT_[TRISTRIP/LINES/POINTS]` - Primitive type.  图元是点 线 三角形
 		///
-		/// @param[in] _rgba Sets blend factor used by `BGFX_STATE_BLEND_FACTOR` and
+		/// @param[in] _rgba Sets blend factor used by `BGFX_STATE_BLEND_FACTOR` and。设置使用的混合因子
 		///   `BGFX_STATE_BLEND_INV_FACTOR` blend modes.
 		///
 		/// @remarks
@@ -1061,10 +1079,10 @@ namespace bgfx
 			, uint32_t _rgba = 0
 			);
 
-		/// Set condition for rendering.
+		/// Set condition for rendering. 设置渲染条件。
 		///
-		/// @param[in] _handle Occlusion query handle.
-		/// @param[in] _visible Render if occlusion query is visible.
+		/// @param[in] _handle Occlusion query handle.   遮挡查询句柄。
+		/// @param[in] _visible Render if occlusion query is visible.  如果遮挡查询可见则渲染。
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_condition`.
 		///
@@ -1073,10 +1091,10 @@ namespace bgfx
 			, bool _visible
 			);
 
-		/// Set stencil test state.
+		/// Set stencil test state.  设置模板测试状态。
 		///
-		/// @param[in] _fstencil Front stencil state.
-		/// @param[in] _bstencil Back stencil state. If back is set to `BGFX_STENCIL_NONE`
+		/// @param[in] _fstencil Front stencil state.  前图元 模板测试状态
+		/// @param[in] _bstencil Back stencil state. If back is set to `BGFX_STENCIL_NONE`   后图元 模板测试状态
 		///   _fstencil is applied to both front and back facing primitives.
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_stencil`.
@@ -1086,7 +1104,7 @@ namespace bgfx
 			, uint32_t _bstencil = BGFX_STENCIL_NONE
 			);
 
-		/// Set scissor for draw primitive. To scissor for all primitives in
+		/// Set scissor for draw primitive. To scissor for all primitives in。 为绘制基元设置裁减区域。 为所有图元设置裁减区域 使用 bgfx::setViewScissor
 		/// view see `bgfx::setViewScissor`.
 		///
 		/// @param[in] _x Position x from the left side of the window.
@@ -1104,7 +1122,7 @@ namespace bgfx
 			, uint16_t _height
 			);
 
-		/// Set scissor from cache for draw primitive.
+		/// Set scissor from cache for draw primitive.      为绘制图元 从缓存中 设置裁减区域
 		///
 		/// @param[in] _cache Index in scissor cache.
 		///   Pass UINT16_MAX to have primitive use view scissor instead.
@@ -1113,11 +1131,11 @@ namespace bgfx
 		///
 		void setScissor(uint16_t _cache = UINT16_MAX);
 
-		/// Set model matrix for draw primitive. If it is not called, model will
-		/// be rendered with identity model matrix.
+		/// Set model matrix for draw primitive. If it is not called, model will  为绘制基元设置“模型矩阵”。
+		/// be rendered with identity model matrix.                             如果没有被调用，模型将使用 单位模型矩阵 进行渲染。
 		///
-		/// @param[in] _mtx Pointer to first matrix in array.
-		/// @param[in] _num Number of matrices in array.
+		/// @param[in] _mtx Pointer to first matrix in array.  矩阵数组地址
+		/// @param[in] _num Number of matrices in array.  矩阵的数量
 		/// @returns Index into matrix cache in case the same model matrix has
 		///   to be used for other draw primitive call.
 		///
@@ -1128,11 +1146,11 @@ namespace bgfx
 			, uint16_t _num = 1
 			);
 
-		/// Reserve `_num` matrices in internal matrix cache.
+		/// Reserve `_num` matrices in internal matrix cache.  在“内部矩阵缓存???”中保留 `_num` 矩阵。
 		///
-		/// @param[in] _transform Pointer to `Transform` structure.
-		/// @param[in] _num Number of matrices.
-		/// @returns Index into matrix cache.
+		/// @param[in] _transform Pointer to `Transform` structure.   指向 `Transform` 结构的指针。  输入??
+		/// @param[in] _num Number of matrices. 矩阵的数量
+		/// @returns Index into matrix cache.  矩阵缓冲索引
 		///
 		/// @attention Pointer returned can be modifed until `bgfx::frame` is called.
 		/// @attention C99 equivalent is `bgfx_encoder_alloc_transform`.
@@ -1142,10 +1160,10 @@ namespace bgfx
 			, uint16_t _num
 			);
 
-		/// Set model matrix from matrix cache for draw primitive.
+		/// Set model matrix from matrix cache for draw primitive.          从“矩阵缓存” 设置 模型矩阵，以绘制基元。
 		///
-		/// @param[in] _cache Index in matrix cache.
-		/// @param[in] _num Number of matrices from cache.
+		/// @param[in] _cache Index in matrix cache.                矩阵缓冲中的索引
+		/// @param[in] _num Number of matrices from cache.      缓冲中矩阵的数目
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_transform_cached`.
 		///
@@ -1154,34 +1172,34 @@ namespace bgfx
 			, uint16_t _num = 1
 			);
 
-		/// Set shader uniform parameter for draw primitive.
+		/// Set shader uniform parameter for draw primitive.            为绘制基元。设置着色器 统一参数。 uniform parameter
 		///
-		/// @param[in] _handle Uniform.
-		/// @param[in] _value Pointer to uniform data.
-		/// @param[in] _num Number of elements. Passing `UINT16_MAX` will
-		///   use the _num passed on uniform creation.
+		/// @param[in] _handle Uniform.         Uniform的句柄 ??
+		/// @param[in] _value Pointer to uniform data.          指针指向uniform数据
+		/// @param[in] _num Number of elements. Passing `UINT16_MAX` will。元素的数目
+		///   use the _num passed on uniform creation.  传递 `UINT16_MAX` 将使用在uniform创建时传递的 _num。
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_uniform`.
 		///
 		void setUniform(
-			  UniformHandle _handle
+			  UniformHandle _handle  //?? 这个句柄用来区分uniform变量 ??
 			, const void* _value
 			, uint16_t _num = 1
 			);
 
-		/// Set index buffer for draw primitive.
+		/// Set index buffer for draw primitive.        为绘制基元设置索引缓冲区。
 		///
-		/// @param[in] _handle Index buffer.
+		/// @param[in] _handle Index buffer.     索引缓冲区 句柄
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_index_buffer`.
 		///
-		void setIndexBuffer(IndexBufferHandle _handle);
+		void setIndexBuffer(IndexBufferHandle _handle);  // 都是通过句柄 传递 buffer ???
 
-		/// Set index buffer for draw primitive.
+		/// Set index buffer for draw primitive.  设置index buffer的值
 		///
-		/// @param[in] _handle Index buffer.
-		/// @param[in] _firstIndex First index to render.
-		/// @param[in] _numIndices Number of indices to render.
+		/// @param[in] _handle Index buffer.   索引缓冲区的句柄
+		/// @param[in] _firstIndex First index to render.   偏移 ??
+		/// @param[in] _numIndices Number of indices to render.    大小 ??
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_index_buffer`.
 		///
@@ -1191,15 +1209,15 @@ namespace bgfx
 			, uint32_t _numIndices
 			);
 
-		/// Set index buffer for draw primitive.
+		/// Set index buffer for draw primitive.  为绘制图元 设置 索引缓冲区
 		///
-		/// @param[in] _handle Dynamic index buffer.
+		/// @param[in] _handle Dynamic index buffer.  动态索引缓冲区 的句柄
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_dynamic_index_buffer`.
 		///
 		void setIndexBuffer(DynamicIndexBufferHandle _handle);
 
-		/// Set index buffer for draw primitive.
+		/// Set index buffer for draw primitive.  ??? 同样只是加上了 offset和length。??
 		///
 		/// @param[in] _handle Dynamic index buffer.
 		/// @param[in] _firstIndex First index to render.
@@ -1213,13 +1231,13 @@ namespace bgfx
 			, uint32_t _numIndices
 			);
 
-		/// Set index buffer for draw primitive.
+		/// Set index buffer for draw primitive.  为绘制 设置索引缓冲区。
 		///
-		/// @param[in] _tib Transient index buffer.
+		/// @param[in] _tib Transient index buffer.  临时索引缓冲区
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_transient_index_buffer`.
 		///
-		void setIndexBuffer(const TransientIndexBuffer* _tib);
+		void setIndexBuffer(const TransientIndexBuffer* _tib); // IndexBufferHandle 包含了 cpu端数据地址  大小 偏移 索引缓冲区句柄 16还是32位标记
 
 		/// Set index buffer for draw primitive.
 		///
@@ -1230,30 +1248,30 @@ namespace bgfx
 		/// @attention C99 equivalent is `bgfx_encoder_set_transient_index_buffer`.
 		///
 		void setIndexBuffer(
-			  const TransientIndexBuffer* _tib
+			  const TransientIndexBuffer* _tib  // 跟上面的区别 多了 第一个元素索引 和 索引数目
 			, uint32_t _firstIndex
 			, uint32_t _numIndices
 			);
 
-		/// Set vertex buffer for draw primitive.
+		/// Set vertex buffer for draw primitive.  为绘制图元 设置顶点缓冲区
 		///
-		/// @param[in] _stream Vertex stream.
-		/// @param[in] _handle Vertex buffer.
+		/// @param[in] _stream Vertex stream.   顶点stream ?? uint8_t ??
+		/// @param[in] _handle Vertex buffer.      顶点缓冲区的句柄
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_vertex_buffer`.
 		///
 		void setVertexBuffer(
-			  uint8_t _stream
+			  uint8_t _stream // 为啥是这个类型 ??  顶点数据流 索引号 ??
 			, VertexBufferHandle _handle
 			);
 
 		/// Set vertex buffer for draw primitive.
 		///
-		/// @param[in] _stream Vertex stream.
-		/// @param[in] _handle Vertex buffer.
-		/// @param[in] _startVertex First vertex to render.
-		/// @param[in] _numVertices Number of vertices to render.
-		/// @param[in] _layoutHandle Vertex layout for aliasing vertex buffer. If invalid handle is
+		/// @param[in] _stream Vertex stream.   uint8_t ?? 顶点数据流
+		/// @param[in] _handle Vertex buffer.   顶点buffer句柄
+		/// @param[in] _startVertex First vertex to render.  第一个顶点
+		/// @param[in] _numVertices Number of vertices to render.  顶点数量
+		/// @param[in] _layoutHandle Vertex layout for aliasing vertex buffer. If invalid handle is。顶点布局
 		///   used, vertex layout used for creation of vertex buffer will be used.
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_vertex_buffer`.
@@ -1274,7 +1292,7 @@ namespace bgfx
 		/// @attention C99 equivalent is `bgfx_encoder_set_dynamic_vertex_buffer`.
 		///
 		void setVertexBuffer(
-			  uint8_t _stream
+			  uint8_t _stream  //  顶点数据流 索引号 ?? 更新这个encoder的 第 _stream 号 的顶点数据 ???
 			, DynamicVertexBufferHandle _handle
 			);
 
@@ -1327,24 +1345,30 @@ namespace bgfx
 			, uint32_t _numVertices
 			, VertexLayoutHandle _layoutHandle = BGFX_INVALID_HANDLE
 			);
+        
+        // setVertexBuffer系列函数  设置给定的Vertex stream.
+        //
+        // 使用数据来源DynamicVertexBufferHandle 或者 VertexBufferHandle 或者 TransientVertexBuffer (顶点缓冲区  动态顶点缓冲区  临时顶点缓冲区)
+        // 配合布局 VertexLayoutHandle
+        // 偏移和大小  _startVertex _numVertices
 
 		/// Set number of vertices for auto generated vertices use in conjuction
-		/// with gl_VertexID.
+		/// with gl_VertexID.  设置 自动生成顶点(与 gl_VertexID 结合使用的 ) 的顶点数。
 		///
 		/// @param[in] _numVertices Number of vertices.
 		///
-		/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
+		/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.  是否可用取决于  BGFX_CAPS_VERTEX_ID 能力 setInstanceCount setVertexCount
 		/// @attention C99 equivalent is `bgfx_encoder_set_vertex_count`.
 		///
 		void setVertexCount(uint32_t _numVertices);
 
-		/// Set instance data buffer for draw primitive.
+		/// Set instance data buffer for draw primitive.  为绘制图元 设置   实例数据缓冲区 ???
 		///
 		/// @param[in] _idb Transient instance data buffer.
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_instance_data_buffer`.
 		///
-		void setInstanceDataBuffer(const InstanceDataBuffer* _idb);
+		void setInstanceDataBuffer(const InstanceDataBuffer* _idb); // 包含cpu端数据地址 大小   顶点缓冲区的索引 开始 对齐
 
 		/// Set instance data buffer for draw primitive.
 		///
@@ -1355,7 +1379,7 @@ namespace bgfx
 		/// @attention C99 equivalent is `bgfx_encoder_set_instance_data_buffer`.
 		///
 		void setInstanceDataBuffer(
-			  const InstanceDataBuffer* _idb
+			  const InstanceDataBuffer* _idb  // ?? 只是为了设置 实例数据缓冲区的一部分 ??
 			, uint32_t _start
 			, uint32_t _num
 			);
@@ -1387,23 +1411,28 @@ namespace bgfx
 			, uint32_t _start
 			, uint32_t _num
 			);
+        
+        // setInstanceDataBuffer 系列
+        // 从数据源  InstanceDataBuffer DynamicVertexBufferHandle VertexBufferHandle
+        // 范围 _start _num
+        // 设置实例数据缓冲区
 
 		/// Set number of instances for auto generated instances use in conjuction
 		/// with gl_InstanceID.
 		///
 		/// @param[in] _numInstances Number of instances.
 		///
-		/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
+		/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.      是否可用取决于  BGFX_CAPS_VERTEX_ID 能力 setInstanceCount setVertexCount
 		/// @attention C99 equivalent is `bgfx_encoder_set_instance_count`.
 		///
 		void setInstanceCount(uint32_t _numInstances);
 
-		/// Set texture stage for draw primitive.
+		/// Set texture stage for draw primitive.  为绘制基元  设置纹理阶段   texture stage  ??
 		///
-		/// @param[in] _stage Texture unit.
-		/// @param[in] _sampler Program sampler.
-		/// @param[in] _handle Texture handle.
-		/// @param[in] _flags Texture sampling mode. Default value UINT32_MAX uses
+		/// @param[in] _stage Texture unit.  纹理单元  ??  第几个纹理??
+		/// @param[in] _sampler Program sampler.   采样器句柄
+		/// @param[in] _handle Texture handle.  纹理句柄
+		/// @param[in] _flags Texture sampling mode. Default value UINT32_MAX uses 如果设置为UINT32_MAX 使用 Texture handle中设置的采样方式
 		///   texture sampling settings from the texture.
 		///   - `BGFX_SAMPLER_[U/V/W]_[MIRROR/CLAMP]` - Mirror or clamp to edge wrap
 		///     mode.
@@ -1419,12 +1448,12 @@ namespace bgfx
 			, uint32_t _flags = UINT32_MAX
 			);
 
-		/// Submit an empty primitive for rendering. Uniforms and draw state
+		/// Submit an empty primitive for rendering. Uniforms and draw state        提交一个空基元进行渲染。
 		/// will be applied but no geometry will be submitted. Useful in cases
-		/// when no other draw/compute primitive is submitted to view, but it's
-		/// desired to execute clear view.
+		/// when no other draw/compute primitive is submitted to view, but it's   Uniforms和绘制状态draw state将会使用 ，但不会提交任何几何图形。
+		/// desired to execute clear view.  在 没有绘制/计算图元 提交到view的时候  但希望执行清除视图的情况下很有用。
 		///
-		/// These empty draw calls will sort before ordinary draw calls.
+		/// These empty draw calls will sort before ordinary draw calls.  这些空的绘制调用将在普通绘制调用之前排序。 ???
 		///
 		/// @param[in] _id View id.
 		///
@@ -1432,12 +1461,12 @@ namespace bgfx
 		///
 		void touch(ViewId _id);
 
-		/// Submit primitive for rendering.
+		/// Submit primitive for rendering.  提交图元进行渲染。
 		///
-		/// @param[in] _id View id.
-		/// @param[in] _program Program.
-		/// @param[in] _depth Depth for sorting.
-		/// @param[in] _flags Discard or preserve states. See `BGFX_DISCARD_*`.
+		/// @param[in] _id View id.   窗口id
+		/// @param[in] _program Program. 程序句柄
+		/// @param[in] _depth Depth for sorting. 用于排序的深度??
+		/// @param[in] _flags Discard or preserve states. See `BGFX_DISCARD_*`.  丢弃或保留状态??
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_submit`.
 		///
@@ -1452,7 +1481,7 @@ namespace bgfx
 		///
 		/// @param[in] _id View id.
 		/// @param[in] _program Program.
-		/// @param[in] _occlusionQuery Occlusion query.
+		/// @param[in] _occlusionQuery Occlusion query.  遮挡查询句柄
 		/// @param[in] _depth Depth for sorting.
 		/// @param[in] _flags Discard or preserve states. See `BGFX_DISCARD_*`.
 		///
@@ -1466,14 +1495,14 @@ namespace bgfx
 			, uint8_t _flags  = BGFX_DISCARD_ALL
 			);
 
-		/// Submit primitive for rendering with index and instance data info from
+		/// Submit primitive for rendering with index and instance data info from  提交图元渲染 ，索引和实例数据信息 来自 间接缓冲
 		/// indirect buffer.
 		///
 		/// @param[in] _id View id.
 		/// @param[in] _program Program.
-		/// @param[in] _indirectHandle Indirect buffer.
-		/// @param[in] _start First element in indirect buffer.
-		/// @param[in] _num Number of dispatches.
+		/// @param[in] _indirectHandle Indirect buffer.   间接缓冲???句柄
+		/// @param[in] _start First element in indirect buffer.  间接缓冲第一个元素
+		/// @param[in] _num Number of dispatches.  发射数量??? dispatch 函数一样 compute shader
 		/// @param[in] _depth Depth for sorting.
 		/// @param[in] _flags Discard or preserve states. See `BGFX_DISCARD_*`.
 		///
@@ -1489,10 +1518,10 @@ namespace bgfx
 			, uint8_t _flags = BGFX_DISCARD_ALL
 			);
 
-		/// Set compute index buffer.
+		/// Set compute index buffer.  设置计算 索引缓冲区
 		///
-		/// @param[in] _stage Compute stage.
-		/// @param[in] _handle Index buffer handle.
+		/// @param[in] _stage Compute stage.    第几个参数??
+		/// @param[in] _handle Index buffer handle.  索引缓冲区句柄
 		/// @param[in] _access Buffer access. See `Access::Enum`.
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_compute_index_buffer`.
@@ -1503,7 +1532,7 @@ namespace bgfx
 			, Access::Enum _access
 			);
 
-		/// Set compute vertex buffer.
+		/// Set compute vertex buffer. 设置计算 顶点缓冲区
 		///
 		/// @param[in] _stage Compute stage.
 		/// @param[in] _handle Vertex buffer handle.
@@ -1517,7 +1546,7 @@ namespace bgfx
 			, Access::Enum _access
 			);
 
-		/// Set compute dynamic index buffer.
+		/// Set compute dynamic index buffer. 设置计算 动态索引缓冲区
 		///
 		/// @param[in] _stage Compute stage.
 		/// @param[in] _handle Dynamic index buffer handle.
@@ -1531,7 +1560,7 @@ namespace bgfx
 			, Access::Enum _access
 			);
 
-		/// Set compute dynamic vertex buffer.
+		/// Set compute dynamic vertex buffer.  设置计算 动态顶点缓冲区
 		///
 		/// @param[in] _stage Compute stage.
 		/// @param[in] _handle Dynamic vertex buffer handle.
@@ -1545,7 +1574,7 @@ namespace bgfx
 			, Access::Enum _access
 			);
 
-		/// Set compute indirect buffer.
+		/// Set compute indirect buffer.   设置计算  间接缓冲区
 		///
 		/// @param[in] _stage Compute stage.
 		/// @param[in] _handle Indirect buffer handle.
@@ -1559,13 +1588,13 @@ namespace bgfx
 			, Access::Enum _access
 			);
 
-		/// Set compute image from texture.
+		/// Set compute image from texture. 设置计算图片 从纹理
 		///
-		/// @param[in] _stage Texture unit.
-		/// @param[in] _handle Texture handle.
-		/// @param[in] _mip Mip level.
+		/// @param[in] _stage Texture unit.  第几个参数 ??
+		/// @param[in] _handle Texture handle.   纹理句柄
+		/// @param[in] _mip Mip level.  mipmap级别
 		/// @param[in] _access Texture access. See `Access::Enum`.
-		/// @param[in] _format Texture format. See: `TextureFormat::Enum`.
+		/// @param[in] _format Texture format. See: `TextureFormat::Enum`.  纹理格式 ??
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_set_image`.
 		///
@@ -1577,11 +1606,11 @@ namespace bgfx
 			, TextureFormat::Enum _format = TextureFormat::Count
 			);
 
-		/// Dispatch compute.
+		/// Dispatch compute.  扔去计算
 		///
-		/// @param[in] _id View id.
-		/// @param[in] _handle Compute program.
-		/// @param[in] _numX Number of groups X.
+		/// @param[in] _id View id.  窗口id
+		/// @param[in] _handle Compute program.  计算程序的句柄
+		/// @param[in] _numX Number of groups X.  groups X Y Z 的数目 ???
 		/// @param[in] _numY Number of groups Y.
 		/// @param[in] _numZ Number of groups Z.
 		/// @param[in] _flags Discard or preserve states. See `BGFX_DISCARD_*`.
@@ -1617,25 +1646,25 @@ namespace bgfx
 			, uint8_t _flags  = BGFX_DISCARD_ALL
 			);
 
-		/// Discard all previously set state for draw or compute call.
+		/// Discard all previously set state for draw or compute call.  丢弃之前所有为绘制和计算 设置的状态
 		///
-		/// @param[in] _flags Draw/compute states to discard.
+		/// @param[in] _flags Draw/compute states to discard.  丢弃绘制或者计算的设置
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_discard`.
 		///
 		void discard(uint8_t _flags = BGFX_DISCARD_ALL);
 
-		/// Blit texture 2D region between two 2D textures.
+		/// Blit texture 2D region between two 2D textures.   拷贝 2d纹理 的指定区域到另外一个纹理   ？vulkan  blit 也可以自动转换分辨率并进行纹理过滤？
 		///
-		/// @param[in] _id View id.
-		/// @param[in] _dst Destination texture handle.
+		/// @param[in] _id View id.  为啥也要带窗口ID ???
+		/// @param[in] _dst Destination texture handle.  目标纹理句柄
 		/// @param[in] _dstX Destination texture X position.
 		/// @param[in] _dstY Destination texture Y position.
-		/// @param[in] _src Source texture handle.
+		/// @param[in] _src Source texture handle.   源纹理句柄
 		/// @param[in] _srcX Source texture X position.
 		/// @param[in] _srcY Source texture Y position.
 		/// @param[in] _width Width of region.
-		/// @param[in] _height Height of region.
+		/// @param[in] _height Height of region.  区域的宽高
 		///
 		/// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
 		/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_BLIT`.
@@ -1657,10 +1686,10 @@ namespace bgfx
 		///
 		/// @param[in] _id View id.
 		/// @param[in] _dst Destination texture handle.
-		/// @param[in] _dstMip Destination texture mip level.
+		/// @param[in] _dstMip Destination texture mip level.  mimap级别
 		/// @param[in] _dstX Destination texture X position.
 		/// @param[in] _dstY Destination texture Y position.
-		/// @param[in] _dstZ If texture is 2D this argument should be 0. If destination texture is cube
+		/// @param[in] _dstZ If texture is 2D this argument should be 0. If destination texture is cube       2d纹理只能是0   cube纹理是cube面     3d纹理是z坐标
 		///   this argument represents destination texture cube face. For 3D texture this argument
 		///   represents destination texture Z position.
 		/// @param[in] _src Source texture handle.
@@ -1672,7 +1701,7 @@ namespace bgfx
 		///   represents source texture Z position.
 		/// @param[in] _width Width of region.
 		/// @param[in] _height Height of region.
-		/// @param[in] _depth If texture is 3D this argument represents depth of region, otherwise it's
+		/// @param[in] _depth If texture is 3D this argument represents depth of region, otherwise it's  3d纹理的话 这个表示深度 ??? ，其他纹理无作用
 		///   unused.
 		///
 		/// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
@@ -1697,7 +1726,7 @@ namespace bgfx
 			);
 	};
 
-	/// Vertex layout.
+	/// Vertex layout.  顶点布局
 	///
 	/// @attention C99 equivalent is `bgfx_vertex_layout_t`.
 	///
@@ -1705,33 +1734,33 @@ namespace bgfx
 	{
 		VertexLayout();
 
-		/// Start VertexLayout.
+		/// Start VertexLayout. 开始布局
 		///
-		/// @param[in] _renderer Renderer backend type. See: `bgfx::RendererType`
+		/// @param[in] _renderer Renderer backend type. See: `bgfx::RendererType`  渲染器实现类型
 		/// @returns Returns itself.
 		///
 		/// @attention C99 equivalent is `bgfx_vertex_layout_begin`.
 		///
 		VertexLayout& begin(RendererType::Enum _renderer = RendererType::Noop);
 
-		/// End VertexLayout.
+		/// End VertexLayout. 结束布局
 		///
 		/// @attention C99 equivalent is `bgfx_vertex_layout_end`.
 		///
 		void end();
 
-		/// Add attribute to VertexLayout.
+		/// Add attribute to VertexLayout.  增加属性到布局
 		///
-		/// @param[in] _attrib Attribute semantics. See: `bgfx::Attrib`
-		/// @param[in] _num Number of elements 1, 2, 3 or 4.
-		/// @param[in] _type Element type.
+		/// @param[in] _attrib Attribute semantics. See: `bgfx::Attrib` 属性语义 比如是 Attrib::Position  Attrib::Tangent Attrib::Normal 等表示顶点属性
+		/// @param[in] _num Number of elements 1, 2, 3 or 4.   元素个数
+		/// @param[in] _type Element type.  元素数据类型 half float  uint8  Int16
 		/// @param[in] _normalized When using fixed point AttribType (f.e. Uint8)
-		///   value will be normalized for vertex shader usage. When normalized
-		///   is set to true, AttribType::Uint8 value in range 0-255 will be
+		///   value will be normalized for vertex shader usage. When normalized  当使用定点 元素数据类型 时 比如uint8，在顶点着色器使用时 数据会被归一化
+		///   is set to true, AttribType::Uint8 value in range 0-255 will be  Uint8 从0~255 会被转换成 0~1 在顶点着色器中
 		///   in range 0.0-1.0 in vertex shader.
 		/// @param[in] _asInt Packaging rule for vertexPack, vertexUnpack, and
-		///   vertexConvert for AttribType::Uint8 and AttribType::Int16.
-		///   Unpacking code must be implemented inside vertex shader.
+		///   vertexConvert for AttribType::Uint8 and AttribType::Int16.                    AttribType::Uint8 和 AttribType::Int16 的 vertexPack、vertexUnpack 和 vertexConvert 的打包规则。
+		///   Unpacking code must be implemented inside vertex shader.              解包代码必须在顶点着色器中实现。 ???
 		/// @returns Returns itself.
 		///
 		/// @remarks
@@ -1747,7 +1776,7 @@ namespace bgfx
 			, bool _asInt = false
 			);
 
-		/// Skip _num bytes in vertex stream.
+		/// Skip _num bytes in vertex stream.  跳过 顶点数据流 的多少字节 ??  每个顶点数据的对齐 _num会增加到  m_stride
 		///
 		/// @returns Returns itself.
 		///
@@ -1755,7 +1784,7 @@ namespace bgfx
 		///
 		VertexLayout& skip(uint8_t _num);
 
-		/// Decode attribute.
+		/// Decode attribute.  解码属性 ？？？
 		///
 		/// @attention C99 equivalent is `bgfx_vertex_layout_decode`.
 		///
@@ -1767,7 +1796,7 @@ namespace bgfx
 			, bool& _asInt
 			) const;
 
-		/// Returns `true` if VertexLayout contains attribute.
+		/// Returns `true` if VertexLayout contains attribute.  如果layout文件包含这个 属性语义 返回true
 		///
 		/// @param[in] _attrib Attribute semantics. See: `bgfx::Attrib`
 		/// @returns True if VertexLayout contains attribute.
@@ -1776,20 +1805,20 @@ namespace bgfx
 		///
 		bool has(Attrib::Enum _attrib) const { return UINT16_MAX != m_attributes[_attrib]; }
 
-		/// Returns relative attribute offset from the vertex.
+		/// Returns relative attribute offset from the vertex.  给定 属性语义  在layout中的偏移
 		///
 		/// @param[in] _attrib Attribute semantics. See: `bgfx::Attrib`
 		/// @returns Relative attribute offset from the vertex.
 		///
 		uint16_t getOffset(Attrib::Enum _attrib) const { return m_offset[_attrib]; }
 
-		/// Returns vertex stride.
+		/// Returns vertex stride.  顶点对齐
 		///
 		/// @returns Vertex stride.
 		///
 		uint16_t getStride() const { return m_stride; }
 
-		/// Returns size of vertex buffer for number of vertices.
+		/// Returns size of vertex buffer for number of vertices.   给定顶点数目需要的顶点buffer大小
 		///
 		/// @param[in] _num Number of vertices.
 		/// @returns Size of vertex buffer for number of vertices.
@@ -1798,23 +1827,23 @@ namespace bgfx
 
 		uint32_t m_hash;                      //!< Hash.
 		uint16_t m_stride;                    //!< Stride.
-		uint16_t m_offset[Attrib::Count];     //!< Attribute offsets.
-		uint16_t m_attributes[Attrib::Count]; //!< Used attributes.
+		uint16_t m_offset[Attrib::Count];     //!< Attribute offsets.  每个属性语义的偏移
+		uint16_t m_attributes[Attrib::Count]; //!< Used attributes.  使用到的属性语义 对应的配置
 	};
-
-	/// Pack vertex attribute into vertex stream format.
+ 
+	/// Pack vertex attribute into vertex stream format.  将 顶点属性 打包成 顶点流格式 。 ????
 	///
 	/// @param[in] _input Value to be packed into vertex stream.
 	/// @param[in] _inputNormalized True if input value is already normalized.
-	/// @param[in] _attr Attribute to pack.
-	/// @param[in] _layout Vertex stream layout.
-	/// @param[in] _data Destination vertex stream where data will be packed.
-	/// @param[in] _index Vertex index that will be modified.
+	/// @param[in] _attr Attribute to pack.         将要打包的 属性语义
+	/// @param[in] _layout Vertex stream layout.  顶点流布局
+	/// @param[in] _data Destination vertex stream where data will be packed. 目标顶点流 (数据被打包)
+	/// @param[in] _index Vertex index that will be modified.  将要被修改的顶点索引  ??
 	///
 	/// @attention C99 equivalent is `bgfx_vertex_pack`.
 	///
 	void vertexPack(
-		  const float _input[4]
+		  const float _input[4]  // pack的时候这个是输入  unpack的时候这个是输出
 		, bool _inputNormalized
 		, Attrib::Enum _attr
 		, const VertexLayout& _layout
@@ -1822,27 +1851,27 @@ namespace bgfx
 		, uint32_t _index = 0
 		);
 
-	/// Unpack vertex attribute from vertex stream format.
+	/// Unpack vertex attribute from vertex stream format.   获取顶点数据流中某个顶点的某个属性值 ???
 	///
 	/// @param[out] _output Result of unpacking.
-	/// @param[in]  _attr Attribute to unpack.
-	/// @param[in]  _layout Vertex stream layout.
-	/// @param[in]  _data Source vertex stream from where data will be unpacked.
-	/// @param[in]  _index Vertex index that will be unpacked.
+	/// @param[in]  _attr Attribute to unpack.   哪个 属于语义
+	/// @param[in]  _layout Vertex stream layout.  顶点数据流的布局
+	/// @param[in]  _data Source vertex stream from where data will be unpacked.   顶点数据源  从这里unpack
+	/// @param[in]  _index Vertex index that will be unpacked.  要unpack的顶点索引
 	///
 	/// @attention C99 equivalent is `bgfx_vertex_unpack`.
 	///
 	void vertexUnpack(
-		  float _output[4]
+		  float _output[4] // 这个是输出
 		, Attrib::Enum _attr
 		, const VertexLayout& _layout
 		, const void* _data
 		, uint32_t _index = 0
 		);
 
-	/// Converts vertex stream data from one vertex stream format to another.
+	/// Converts vertex stream data from one vertex stream format to another.  顶点数据流 从一个数据流格式到另外一个
 	///
-	/// @param[in] _destLayout Destination vertex stream layout.
+	/// @param[in] _destLayout Destination vertex stream layout.  数据流格式就是数据流布局  ？？？
 	/// @param[in] _destData Destination vertex stream.
 	/// @param[in] _srcLayout Source vertex stream layout.
 	/// @param[in] _srcData Source vertex stream data.
@@ -1858,16 +1887,16 @@ namespace bgfx
 		, uint32_t _num = 1
 		);
 
-	/// Weld vertices.
+	/// Weld vertices.  焊接顶点 ？？？  合并顶点 ？？
 	///
-	/// @param[in] _output Welded vertices remapping table. The size of buffer
-	///   must be the same as number of vertices.
-	/// @param[in] _layout Vertex stream layout.
-	/// @param[in] _data Vertex stream.
-	/// @param[in] _num Number of vertices in vertex stream.
-	/// @param[in] _index32 Set to `true` if input indices are 32-bit.
-	/// @param[in] _epsilon Error tolerance for vertex position comparison.
-	/// @returns Number of unique vertices after vertex welding.
+	/// @param[in] _output Welded vertices remapping table. The size of buffer  焊接顶点重映射表??
+	///   must be the same as number of vertices.   缓冲区的大小必须与顶点数相同。
+	/// @param[in] _layout Vertex stream layout.     顶点数据流布局
+	/// @param[in] _data Vertex stream.                     顶点数据流
+	/// @param[in] _num Number of vertices in vertex stream.  顶点数据流中 顶点的数目
+	/// @param[in] _index32 Set to `true` if input indices are 32-bit. 输入索引是32位 ????
+	/// @param[in] _epsilon Error tolerance for vertex position comparison. 顶点位置比较的误差容限 ???
+	/// @returns Number of unique vertices after vertex welding.  顶点焊接后的唯一顶点数。
 	///
 	/// @attention C99 equivalent is `bgfx_weld_vertices`.
 	///
@@ -1880,7 +1909,7 @@ namespace bgfx
 		, float _epsilon = 0.001f
 		);
 
-	/// Convert index buffer for use with different primitive topologies.
+	/// Convert index buffer for use with different primitive topologies.  转换索引缓冲区 以 用于不同的图元拓扑 ???  三角型到线  线条到线列表
 	///
 	/// @param[in] _conversion Conversion type, see `TopologyConvert::Enum`.
 	/// @param[in] _dst Destination index buffer. If this argument is NULL
@@ -1905,20 +1934,20 @@ namespace bgfx
 		, bool _index32
 		);
 
-	/// Sort indices.
+	/// Sort indices.  排序索引 ??  距离前到后 ？？ 给定某个方向
 	///
 	/// @param[in] _sort Sort order, see `TopologySort::Enum`.
-	/// @param[in] _dst Destination index buffer.
+	/// @param[in] _dst Destination index buffer.               目标索引缓冲区
 	/// @param[in] _dstSize Destination index buffer in bytes. It must be
 	///    large enough to contain output indices. If destination size is
-	///    insufficient index buffer will be truncated.
-	/// @param[in] _dir Direction (vector must be normalized).
-	/// @param[in] _pos Position.
+	///    insufficient index buffer will be truncated.             目标索引缓冲区（以字节为单位）。 它必须足够大以包含输出索引。 如果目标大小不足，索引缓冲区将被截断。
+	/// @param[in] _dir Direction (vector must be normalized).  归一化的方向
+	/// @param[in] _pos Position.  坐标
 	/// @param[in] _vertices Pointer to first vertex represented as
 	///    float x, y, z. Must contain at least number of vertices
-	///    referencende by index buffer.
-	/// @param[in] _stride Vertex stride.
-	/// @param[in] _indices Source indices.
+	///    referencende by index buffer.                                指向第一个顶点的指针，表示为浮点 x、y、z。 必须至少包含索引缓冲区所引用的顶点数。
+	/// @param[in] _stride Vertex stride.           _vertices 的 对齐 ??
+	/// @param[in] _indices Source indices.             源索引缓冲区
 	/// @param[in] _numIndices Number of input indices.
 	/// @param[in] _index32 Set to `true` if input indices are 32-bit.
 	///
@@ -1937,7 +1966,7 @@ namespace bgfx
 		, bool _index32
 		);
 
-	/// Returns supported backend API renderers.
+	/// Returns supported backend API renderers.  返回支持的后端 API 渲染器。
 	///
 	/// @param[in] _max Maximum number of elements in _enum array.
 	/// @param[inout] _enum Array where supported renderers will be written.
@@ -1951,15 +1980,15 @@ namespace bgfx
 		, RendererType::Enum* _enum = NULL
 		);
 
-	/// Returns name of renderer.
+	/// Returns name of renderer.  返回给定render api的名字
 	///
 	/// @attention C99 equivalent is `bgfx_get_renderer_name`.
 	///
 	const char* getRendererName(RendererType::Enum _type);
 
-	/// Initialize bgfx library.
+	/// Initialize bgfx library.   初始化 bgfx 库。
 	///
-	/// @param[in] _init Initialization parameters. See: `bgfx::Init` for more info.
+	/// @param[in] _init Initialization parameters. See: `bgfx::Init` for more info.  用户指定的初始化参数  _userInit
 	///
 	/// @returns `true` if initialization was successful.
 	///
@@ -1967,32 +1996,32 @@ namespace bgfx
 	///
 	bool init(const Init& _init = {});
 
-	/// Shutdown bgfx library.
+	/// Shutdown bgfx library. 关闭 bgfx 库
 	///
 	/// @attention C99 equivalent is `bgfx_shutdown`.
 	///
 	void shutdown();
 
-	/// Reset graphic settings and back-buffer size.
+	/// Reset graphic settings and back-buffer size. 重置图形"设置" 和后缓冲区大小。        呈现给显示设备的 前缓冲区(Front Buffer) 和用作渲染目标的 后缓冲区(Back Buffer)
 	///
-	/// @param[in] _width Back-buffer width.
+	/// @param[in] _width Back-buffer width.    后缓冲区的宽和高
 	/// @param[in] _height Back-buffer height.
 	/// @param[in] _flags See: `BGFX_RESET_*` for more info.
 	///   - `BGFX_RESET_NONE` - No reset flags.
 	///   - `BGFX_RESET_FULLSCREEN` - Not supported yet.
-	///   - `BGFX_RESET_MSAA_X[2/4/8/16]` - Enable 2, 4, 8 or 16 x MSAA.
-	///   - `BGFX_RESET_VSYNC` - Enable V-Sync.
-	///   - `BGFX_RESET_MAXANISOTROPY` - Turn on/off max anisotropy.
-	///   - `BGFX_RESET_CAPTURE` - Begin screen capture.
-	///   - `BGFX_RESET_FLUSH_AFTER_RENDER` - Flush rendering after submitting to GPU.
-	///   - `BGFX_RESET_FLIP_AFTER_RENDER` - This flag  specifies where flip
-	///     occurs. Default behavior is that flip occurs before rendering new
-	///     frame. This flag only has effect when `BGFX_CONFIG_MULTITHREADED=0`.
+	///   - `BGFX_RESET_MSAA_X[2/4/8/16]` - Enable 2, 4, 8 or 16 x MSAA.     使能MSAA
+	///   - `BGFX_RESET_VSYNC` - Enable V-Sync.                                             使能VSYNC ??
+	///   - `BGFX_RESET_MAXANISOTROPY` - Turn on/off max anisotropy.        打开关闭最大各向异性
+	///   - `BGFX_RESET_CAPTURE` - Begin screen capture.                                开始截屏
+	///   - `BGFX_RESET_FLUSH_AFTER_RENDER` - Flush rendering after submitting to GPU.  提交给 GPU 后 刷新渲染
+	///   - `BGFX_RESET_FLIP_AFTER_RENDER` - This flag  specifies where flip        指定翻转发生的时机  flip
+	///     occurs. Default behavior is that flip occurs before rendering new           默认行为是在渲染新帧之前发生翻转  Context::renderFrame
+	///     frame. This flag only has effect when `BGFX_CONFIG_MULTITHREADED=0`. 只有在 BGFX_CONFIG_MULTITHREADED=0` 没有多线程的情况下
 	///   - `BGFX_RESET_SRGB_BACKBUFFER` - Enable sRGB backbuffer.
-	/// @param[in] _format Texture format. See: `TextureFormat::Enum`.
+	/// @param[in] _format Texture format. See: `TextureFormat::Enum`.   纹理格式 ???
 	///
 	/// @attention This call doesn't actually change window size, it just
-	///   resizes back-buffer. Windowing code has to change window size.
+	///   resizes back-buffer. Windowing code has to change window size.  这个调用实际上并没有改变窗口大小，它只是调整了后缓冲区的大小。 窗口代码必须改变窗口大小。??
 	///
 	/// @attention C99 equivalent is `bgfx_reset`.
 	///
@@ -2005,29 +2034,29 @@ namespace bgfx
 
 	/// Begin submitting draw calls from thread.
 	///
-	/// @param[in] _forThread Explicitly request an encoder for a worker thread.
+	/// @param[in] _forThread Explicitly request an encoder for a worker thread.  显式地在一个工作线程 请求一个编码器
 	///
 	Encoder* begin(bool _forThread = false);
 
-	/// End submitting draw calls from thread.
+	/// End submitting draw calls from thread.   该线程提交 绘制调用
 	///
 	void end(Encoder* _encoder);
 
-	/// Advance to next frame. When using multithreaded renderer, this call
+	/// Advance to next frame. When using multithreaded renderer, this call         前进到下一帧。当使用多线程渲染， 这个调用只是交换内部缓冲区，通知渲染线程，然后返回。
 	/// just swaps internal buffers, kicks render thread, and returns. In
-	/// singlethreaded renderer this call does frame rendering.
+	/// singlethreaded renderer this call does frame rendering.                              单线程渲染器此调用执行帧渲染
 	///
-	/// @param[in] _capture Capture frame with graphics debugger.
+	/// @param[in] _capture Capture frame with graphics debugger.           使用图形调试器捕获帧
 	///
 	/// @returns Current frame number. This might be used in conjunction with
 	///   double/multi buffering data outside the library and passing it to
-	///   library via `bgfx::makeRef` calls.
+	///   library via `bgfx::makeRef` calls.    当前帧号。 这可能要与库外的双/多缓冲数据结合使用，并通过`bgfx::makeRef` 调用将其传递给库  ???
 	///
 	/// @attention C99 equivalent is `bgfx_frame`.
 	///
 	uint32_t frame(bool _capture = false);
 
-	/// Returns current renderer backend API type.
+	/// Returns current renderer backend API type.  获取当前后端 渲染api
 	///
 	/// @remarks
 	///   Library must be initialized.
@@ -2036,7 +2065,7 @@ namespace bgfx
 	///
 	RendererType::Enum getRendererType();
 
-	/// Returns renderer capabilities.
+	/// Returns renderer capabilities. 返回渲染能力
 	///
 	/// @returns Pointer to static `bgfx::Caps` structure.
 	///
@@ -2047,14 +2076,14 @@ namespace bgfx
 	///
 	const Caps* getCaps();
 
-	/// Returns performance counters.
+	/// Returns performance counters.  返回统计信息  返回性能计数器
 	///
 	/// @attention Pointer returned is valid until `bgfx::frame` is called.
 	/// @attention C99 equivalent is `bgfx_get_stats`.
 	///
 	const Stats* getStats();
 
-	/// Allocate buffer to pass to bgfx calls. Data will be freed inside bgfx.
+	/// Allocate buffer to pass to bgfx calls. Data will be freed inside bgfx. 分配缓冲区用来传递给 bgfx 的函数调用     内存会在 bgfx 中释放。
 	///
 	/// @param[in] _size Size to allocate.
 	///
@@ -2062,7 +2091,7 @@ namespace bgfx
 	///
 	const Memory* alloc(uint32_t _size);
 
-	/// Allocate buffer and copy data into it. Data will be freed inside bgfx.
+	/// Allocate buffer and copy data into it. Data will be freed inside bgfx. 分配并拷贝给定数据到memory
 	///
 	/// @param[in] _data Pointer to data to be copied.
 	/// @param[in] _size Size of data to be copied.
@@ -2074,11 +2103,11 @@ namespace bgfx
 		, uint32_t _size
 		);
 
-	/// Make reference to data to pass to bgfx. Unlike `bgfx::alloc`, this call
+	/// Make reference to data to pass to bgfx. Unlike `bgfx::alloc`, this call         参考要传递给 bgfx 的数据。 不像`bgfx::alloc`，这个调用不会为数据分配内存。 它只是复制 _data 指针。
 	/// doesn't allocate memory for data. It just copies the _data pointer. You
 	/// can pass `ReleaseFn` function pointer to release this memory after it's
-	/// consumed, otherwise you must make sure _data is available for at least 2
-	/// `bgfx::frame` calls. `ReleaseFn` function must be able to be called
+	/// consumed, otherwise you must make sure _data is available for at least 2  你可以通过 `ReleaseFn` 函数指针在它被消耗后释放这个内存，
+	/// `bgfx::frame` calls. `ReleaseFn` function must be able to be called                 否则你必须确保 _data 至少可用于 2 个 `bgfx::frame` 调用。 `ReleaseFn` 函数必须能够从任何线程调用。
 	/// from any thread.
 	///
 	/// @param[in] _data Pointer to data.
@@ -2086,33 +2115,33 @@ namespace bgfx
 	/// @param[in] _releaseFn Callback function to release memory after use.
 	/// @param[in] _userData User data to be passed to callback function.
 	///
-	/// @attention Data passed must be available for at least 2 `bgfx::frame` calls.
+	/// @attention Data passed must be available for at least 2 `bgfx::frame` calls.  数据必须有用 在至少两次bgfx::frame调用
 	/// @attention C99 equivalent are `bgfx_make_ref`, `bgfx_make_ref_release`.
 	///
 	const Memory* makeRef(
 		  const void* _data
 		, uint32_t _size
-		, ReleaseFn _releaseFn = NULL
+		, ReleaseFn _releaseFn = NULL // 释放函数 可以是null
 		, void* _userData = NULL
 		);
 
-	/// Set debug flags.
+	/// Set debug flags.  设置调试标志。
 	///
 	/// @param[in] _debug Available flags:
-	///   - `BGFX_DEBUG_IFH` - Infinitely fast hardware. When this flag is set
+	///   - `BGFX_DEBUG_IFH` - Infinitely fast hardware. When this flag is set  无限快的硬件。 设置此标志后，将跳过所有渲染调用。 这在分析以快速评估 CPU 和 GPU 之间的潜在瓶颈时非常有用。 ??? 内存 ???
 	///     all rendering calls will be skipped. This is useful when profiling
 	///     to quickly assess potential bottlenecks between CPU and GPU.
-	///   - `BGFX_DEBUG_PROFILER` - Enable profiler.
-	///   - `BGFX_DEBUG_STATS` - Display internal statistics.
-	///   - `BGFX_DEBUG_TEXT` - Display debug text.
-	///   - `BGFX_DEBUG_WIREFRAME` - Wireframe rendering. All rendering
+	///   - `BGFX_DEBUG_PROFILER` - Enable profiler.                                        启用分析器
+	///   - `BGFX_DEBUG_STATS` - Display internal statistics.                               显示内部统计信息。
+	///   - `BGFX_DEBUG_TEXT` - Display debug text.                                         显示调试文本。
+	///   - `BGFX_DEBUG_WIREFRAME` - Wireframe rendering. All rendering         线框渲染。 所有渲染图元都将渲染为线条 ???
 	///     primitives will be rendered as lines.
 	///
 	/// @attention C99 equivalent is `bgfx_set_debug`.
 	///
 	void setDebug(uint32_t _debug);
 
-	/// Clear internal debug text buffer.
+	/// Clear internal debug text buffer. 清除内部调试文本缓冲区。
 	///
 	/// @param[in] _attr Background color.
 	/// @param[in] _small Default 8x16 or 8x8 font.
@@ -2124,7 +2153,7 @@ namespace bgfx
 		, bool _small = false
 		);
 
-	/// Print into internal debug text character-buffer (VGA-compatible text mode).
+	/// Print into internal debug text character-buffer (VGA-compatible text mode).  打印 到"内部调试文本字符缓冲区"（VGA 兼容文本模式）。  ???
 	///
 	/// @param[in] _x, _y 2D position from top-left.
 	/// @param[in] _attr Color palette. Where top 4-bits represent index of background, and bottom
@@ -2141,7 +2170,7 @@ namespace bgfx
 		, ...
 		);
 
-	/// Print into internal debug text character-buffer (VGA-compatible text mode).
+	/// Print into internal debug text character-buffer (VGA-compatible text mode). 只是参数不一样  一个用... 一个用va_list
 	///
 	/// @param[in] _x, _y 2D position from top-left.
 	/// @param[in] _attr Color palette. Where top 4-bits represent index of background, and bottom
@@ -2159,11 +2188,11 @@ namespace bgfx
 		, va_list _argList
 		);
 
-	/// Draw image into internal debug text buffer.
+	/// Draw image into internal debug text buffer.   绘制图像到  "内部调试文本 缓冲区"
 	///
 	/// @param[in] _x, _y 2D position from top-left.
 	/// @param[in] _width, _height  Image width and height.
-	/// @param[in] _data  Raw image data (character/attribute raw encoding).
+	/// @param[in] _data  Raw image data (character/attribute raw encoding).  raw图片数据
 	/// @param[in] _pitch Image pitch in bytes.
 	///
 	/// @attention C99 equivalent is `bgfx_dbg_text_image`.
@@ -2177,32 +2206,32 @@ namespace bgfx
 		, uint16_t _pitch
 		);
 
-	/// Create static index buffer.
+	/// Create static index buffer.  创建“静态”索引缓冲区  Memory提供数据 和 大小
 	///
 	/// @param[in] _mem Index buffer data.
 	/// @param[in] _flags Buffer creation flags.
 	///   - `BGFX_BUFFER_NONE` - No flags.
-	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.
-	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
+	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.   CS会读取buffer
+	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer  CS会写入buffer 当设置这个 CPU不能更新数据 ？？
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
-	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
-	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader. CS会写入和读取buffer
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of  缓冲区会自动调整大小 如果update的数据数量不一样的时候
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer  缓冲区将被修剪以适应现有的缓冲区大小。  不适用于动态buffer
 	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
-	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
+	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on  是否适用32bit索引  只有在索引缓冲区使用
 	///       index buffers.
 	///
 	/// @attention C99 equivalent is `bgfx_create_index_buffer`.
 	///
-	IndexBufferHandle createIndexBuffer(
+	IndexBufferHandle createIndexBuffer( // <<< 这个创建的是 “静态” 索引缓冲区
 		  const Memory* _mem
 		, uint16_t _flags = BGFX_BUFFER_NONE
 		);
 
 	/// Set static index buffer debug name.
 	///
-	/// @param[in] _handle Static index buffer handle.
+	/// @param[in] _handle Static index buffer handle.   “静态索引缓冲区”  的句柄    设置缓冲区的名字
 	/// @param[in] _name Static index buffer name.
 	/// @param[in] _len Static index buffer name length (if length is INT32_MAX, it's expected
 	///   that _name is zero terminated string.
@@ -2212,7 +2241,7 @@ namespace bgfx
 	void setName(
 		  IndexBufferHandle _handle
 		, const char* _name
-		, int32_t _len = INT32_MAX
+		, int32_t _len = INT32_MAX  // 名字长度  如果不提供  会认为_name是\0结束
 		);
 
 	/// Destroy static index buffer.
@@ -2221,11 +2250,11 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_destroy_index_buffer`.
 	///
-	void destroy(IndexBufferHandle _handle);
+	void destroy(IndexBufferHandle _handle);        // 销毁静态索引缓冲区
 
-	/// Create vertex layout.
+	/// Create vertex layout.           // 创建顶点布局  会在命令队列中压入一个命令 创建VertexLayet命令  并且返回在Context::m_vertexLayoutRef 的索引
 	///
-	/// @attention C99 equivalent is `bgfx_create_vertex_layout`.
+	/// @attention C99 equivalent is `bgfx_create_vertex_layout`. // 如果layout已经存在(hash) ，就不会再压入创建指令
 	///
 	VertexLayoutHandle createVertexLayout(const VertexLayout& _layout);
 
@@ -2235,10 +2264,10 @@ namespace bgfx
 	///
 	void destroy(VertexLayoutHandle _handle);
 
-	/// Create static vertex buffer.
+	/// Create static vertex buffer.  创建 静态  顶点buffer
 	///
-	/// @param[in] _mem Vertex buffer data.
-	/// @param[in] _layout Vertex layout.
+	/// @param[in] _mem Vertex buffer data.   顶点数据  如果是 makeRef 的话，至少要保留2个bgfx::frame 或者提供Release函数
+	/// @param[in] _layout Vertex layout.       顶点布局
 	/// @param[in] _flags Buffer creation flags.
 	///   - `BGFX_BUFFER_NONE` - No flags.
 	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.
@@ -2255,8 +2284,8 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_create_vertex_buffer`.
 	///
-	VertexBufferHandle createVertexBuffer(
-		  const Memory* _mem
+	VertexBufferHandle createVertexBuffer( // _layout 必须已经在 createVertexLayout 这里创建
+		  const Memory* _mm
 		, const VertexLayout& _layout
 		, uint16_t _flags = BGFX_BUFFER_NONE
 		);
@@ -2284,20 +2313,20 @@ namespace bgfx
 	///
 	void destroy(VertexBufferHandle _handle);
 
-	/// Create empty dynamic index buffer.
+	/// Create empty dynamic index buffer.  创建空的 动态/dynamic 索引缓冲区  ？？ 用在Compute Shader ？？
 	///
-	/// @param[in] _num Number of indices.
+	/// @param[in] _num Number of indices.  索引的数量
 	/// @param[in] _flags Buffer creation flags.
 	///   - `BGFX_BUFFER_NONE` - No flags.
-	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.
-	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
-	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
-	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
-	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
-	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.                 Buffer会被Compute Shader读取
+	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer                Buffer会被Compute Shader写入
+	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.                       如果设置了这个 buffer不能从CPU更新
+	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.            Compute Shader会读取和吸入
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of       如果传递了不同数量的数据，缓冲区将在缓冲区更新时调整大小。
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer          如果未指定此标志，并且在更新时传递了更多数据，则将修剪缓冲区以适应现有缓冲区大小。
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic         此标志仅对动态缓冲区有效
 	///       buffers.
-	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
+	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on    缓冲区使用 32 位索引。 此标志仅对索引缓冲区有效。
 	///       index buffers.
 	/// @returns Dynamic index buffer handle.
 	///
@@ -2308,9 +2337,9 @@ namespace bgfx
 		, uint16_t _flags = BGFX_BUFFER_NONE
 		);
 
-	/// Create dynamic index buffer and initialized it.
+	/// Create dynamic index buffer and initialized it.     创建动态索引缓冲区并对其进行初始化。 返回的是一个 动态索引缓冲区的句柄
 	///
-	/// @param[in] _mem Index buffer data.
+	/// @param[in] _mem Index buffer data.                  用这个给定的cpu端数据  初始化 动态索引缓冲区
 	/// @param[in] _flags Buffer creation flags.
 	///   - `BGFX_BUFFER_NONE` - No flags.
 	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.
@@ -2323,12 +2352,12 @@ namespace bgfx
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
-	/// @returns Dynamic index buffer handle.
+	/// @returns Dynamic index buffer handle. 返回 索引缓冲区的 句柄
 	///
 	/// @attention C99 equivalent is `bgfx_create_dynamic_index_buffer_mem`.
 	///
 	DynamicIndexBufferHandle createDynamicIndexBuffer(
-		  const Memory* _mem
+		  const Memory* _mem //   const Memory* 包含了 cpu端的数据地址和大小
 		, uint16_t _flags = BGFX_BUFFER_NONE
 		);
 
@@ -2341,7 +2370,7 @@ namespace bgfx
 	/// @attention C99 equivalent is `bgfx_update_dynamic_index_buffer`.
 	///
 	void update(
-		  DynamicIndexBufferHandle _handle
+		  DynamicIndexBufferHandle _handle  // 更新动态索引缓冲区，从startIndex开始，更新数据在strcut Memory
 		, uint32_t _startIndex
 		, const Memory* _mem
 		);
@@ -2352,7 +2381,7 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_destroy_dynamic_index_buffer`.
 	///
-	void destroy(DynamicIndexBufferHandle _handle);
+	void destroy(DynamicIndexBufferHandle _handle); // 给定 动态索引缓冲区 的句柄  销毁他
 
 	/// Create empty dynamic vertex buffer.
 	///
@@ -2387,14 +2416,14 @@ namespace bgfx
 	/// @param[in] _flags Buffer creation flags.
 	///   - `BGFX_BUFFER_NONE` - No flags.
 	///   - `BGFX_BUFFER_COMPUTE_READ` - Buffer will be read from by compute shader.
-	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
+	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer  如果设置这个标记，不能从cpu端更新 动态顶点缓冲区
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
 	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
 	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
 	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
-	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
+	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on  32位索引，这个标记不能用在这里
 	///       index buffers.
 	/// @returns Dynamic vertex buffer handle.
 	///
@@ -2406,13 +2435,13 @@ namespace bgfx
 		, uint16_t _flags = BGFX_BUFFER_NONE
 		);
 
-	/// Update dynamic vertex buffer.
+	/// Update dynamic vertex buffer.  只有动态的顶点缓冲区  才有update接口  静态的顶点缓冲区 是没有这个的
 	///
 	/// @param[in] _handle Dynamic vertex buffer handle.
 	/// @param[in] _startVertex Start vertex.
 	/// @param[in] _mem Vertex buffer data.
 	///
-	/// @attention C99 equivalent is `bgfx_update_dynamic_vertex_buffer`.
+	/// @attention C99 equivalent is `bgfx_update_dynamic_vertex_buffer`.  如果之前有设置 BGFX_BUFFER_ALLOW_RESIZE flag的话，会动态增加大小
 	///
 	void update(
 		  DynamicVertexBufferHandle _handle
@@ -2428,14 +2457,14 @@ namespace bgfx
 	///
 	void destroy(DynamicVertexBufferHandle _handle);
 
-	/// Returns number of requested or maximum available indices.
+	/// Returns number of requested or maximum available indices.   返回请求或最大可用索引的数量   设备可能不支持 这么多索引？
 	///
-	/// @param[in] _num Number of required indices.
-	/// @param[in] _index32 Set to `true` if input indices will be 32-bit.
+	/// @param[in] _num Number of required indices.  所需索引的数量
+	/// @param[in] _index32 Set to `true` if input indices will be 32-bit.  索引是否32位
 	///
 	/// @attention C99 equivalent is `bgfx_get_avail_transient_index_buffer`.
 	///
-	uint32_t getAvailTransientIndexBuffer(
+	uint32_t getAvailTransientIndexBuffer( // 可用 瞬间/临时 索引buffer数目
 		  uint32_t _num
 		, bool _index32 = false
 		);
@@ -2447,7 +2476,7 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_get_avail_transient_vertex_buffer`.
 	///
-	uint32_t getAvailTransientVertexBuffer(
+	uint32_t getAvailTransientVertexBuffer( // 可用 瞬间/临时 顶点buffer数目
 		  uint32_t _num
 		, const VertexLayout& _layout
 		);
@@ -2459,15 +2488,15 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_get_avail_instance_data_buffer`.
 	///
-	uint32_t getAvailInstanceDataBuffer(
+	uint32_t getAvailInstanceDataBuffer(  // 可用 瞬间/临时 实例数据buffer数目
 		  uint32_t _num
 		, uint16_t _stride
 		);
 
-	/// Allocate transient index buffer.
+	/// Allocate transient index buffer.  分配临时索引缓冲区。
 	///
-	/// @param[out] _tib TransientIndexBuffer structure is filled and is valid
-	///   for the duration of frame, and it can be reused for multiple draw
+	/// @param[out] _tib TransientIndexBuffer structure is filled and is valid   返回值
+	///   for the duration of frame, and it can be reused for multiple draw   在一帧期间都有效?? bgfx::frame 过程??  可以重复使用
 	///   calls.
 	/// @param[in] _num Number of indices to allocate.
 	/// @param[in] _index32 Set to `true` if input indices will be 32-bit.
@@ -2496,7 +2525,7 @@ namespace bgfx
 		, const VertexLayout& _layout
 		);
 
-	/// Check for required space and allocate transient vertex and index
+	/// Check for required space and allocate transient vertex and index   检查 所需空间并分配 临时顶点和索引缓冲区。 如果满足两个空间要求，则函数返回 true。
 	/// buffers. If both space requirements are satisfied function returns
 	/// true.
 	///
@@ -2522,7 +2551,7 @@ namespace bgfx
 		, bool _index32 = false
 		);
 
-	/// Allocate instance data buffer.
+	/// Allocate instance data buffer.          分配实例数据缓冲区
 	///
 	/// @param[out] _idb InstanceDataBuffer structure is filled and is valid
 	///   for duration of frame, and it can be reused for multiple draw
@@ -2538,7 +2567,7 @@ namespace bgfx
 		, uint16_t _stride
 		);
 
-	/// Create draw indirect buffer.
+	/// Create draw indirect buffer.        创建绘制间接缓冲区
 	///
 	/// @param[in] _num Number of indirect calls.
 	/// @returns Indirect buffer handle.
@@ -2555,7 +2584,7 @@ namespace bgfx
 	///
 	void destroy(IndirectBufferHandle _handle);
 
-	/// Create shader from memory buffer.
+	/// Create shader from memory buffer.  创建shader
 	///
 	/// @returns Shader handle.
 	///
@@ -2563,11 +2592,11 @@ namespace bgfx
 	///
 	ShaderHandle createShader(const Memory* _mem);
 
-	/// Returns the number of uniforms and uniform handles used inside a shader.
+	/// Returns the number of uniforms and uniform handles used inside a shader. 返回着色器中使用的uniforms和uniforms句柄的数量。
 	///
 	/// @param[in] _handle Shader handle.
-	/// @param[in] _uniforms UniformHandle array where data will be stored.
-	/// @param[in] _max Maximum capacity of array.
+	/// @param[in] _uniforms UniformHandle array where data will be stored.  获取shader中的uniform
+	/// @param[in] _max Maximum capacity of array.  数组的容量
 	/// @returns Number of uniforms used by shader.
 	///
 	/// @remarks
@@ -2581,7 +2610,7 @@ namespace bgfx
 		, uint16_t _max = 0
 		);
 
-	/// Set shader debug name.
+	/// Set shader debug name.  设置shader的名字
 	///
 	/// @param[in] _handle Shader handle.
 	/// @param[in] _name Shader name.
@@ -2605,7 +2634,7 @@ namespace bgfx
 	///
 	void destroy(ShaderHandle _handle);
 
-	/// Create program with vertex and fragment shaders.
+	/// Create program with vertex and fragment shaders.  给定vs和fs 创建program
 	///
 	/// @param[in] _vsh Vertex shader.
 	/// @param[in] _fsh Fragment shader.
@@ -2622,7 +2651,7 @@ namespace bgfx
 		, bool _destroyShaders = false
 		);
 
-	/// Create program with compute shader.
+	/// Create program with compute shader.  给定cs创建program
 	///
 	/// @param[in] _csh Compute shader.
 	/// @param[in] _destroyShader If true, shader will be destroyed when
@@ -2644,7 +2673,7 @@ namespace bgfx
 	///
 	void destroy(ProgramHandle _handle);
 
-	/// Validate texture parameters.
+	/// Validate texture parameters.  纹理参数是否有效 ??
 	///
 	/// @param[in] _depth Depth dimension of volume texture.
 	/// @param[in] _cubeMap Indicates that texture contains cubemap.
@@ -2663,7 +2692,7 @@ namespace bgfx
 		, uint64_t _flags
 		);
 
-	/// Validate frame buffer parameters.
+	/// Validate frame buffer parameters.  framebuffer是否有效 ？？
 	///
 	/// @param[in] _num Number of attachments.
 	/// @param[in] _attachment Attachment texture info. See: `bgfx::Attachment`.
@@ -2675,7 +2704,7 @@ namespace bgfx
 		, const Attachment* _attachment
 		);
 
-	/// Calculate amount of memory required for texture.
+	/// Calculate amount of memory required for texture.  计算给定格式的纹理需要内容
 	///
 	/// @param[out] _info Resulting texture info structure. See: `TextureInfo`.
 	/// @param[in] _width Width.
@@ -2689,7 +2718,7 @@ namespace bgfx
 	/// @attention C99 equivalent is `bgfx_calc_texture_size`.
 	///
 	void calcTextureSize(
-		  TextureInfo& _info
+		  TextureInfo& _info // 输出结果  TextureInfo.storageSize
 		, uint16_t _width
 		, uint16_t _height
 		, uint16_t _depth
@@ -2699,9 +2728,9 @@ namespace bgfx
 		, TextureFormat::Enum _format
 		);
 
-	/// Create texture from memory buffer.
+	/// Create texture from memory buffer.  从给定的内存中创建纹理
 	///
-	/// @param[in] _mem DDS, KTX or PVR texture data.
+	/// @param[in] _mem DDS, KTX or PVR texture data.   数据可以是dds  ktx pvr  等容器格式
 	/// @param[in] _flags Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
 	///   flags. Default texture sampling mode is linear, and wrap mode is repeat.
 	///   - `BGFX_SAMPLER_[U/V/W]_[MIRROR/CLAMP]` - Mirror or clamp to edge wrap
@@ -2709,17 +2738,17 @@ namespace bgfx
 	///   - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
 	///     sampling.
 	///
-	/// @param[in] _skip Skip top level mips when parsing texture.
+	/// @param[in] _skip Skip top level mips when parsing texture.      解析纹理时跳过顶级 mips  ??
 	/// @param[out] _info When non-`NULL` is specified it returns parsed texture information.
 	/// @returns Texture handle.
 	///
 	/// @attention C99 equivalent is `bgfx_create_texture`.
 	///
-	TextureHandle createTexture(
+	TextureHandle createTexture( // 必须要有 mem 所以一定是 非深度 ? 没有传入 format
 		  const Memory* _mem
-		, uint64_t _flags = BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE
+		, uint64_t _flags = BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE  // 采样方式 和过滤方式
 		, uint8_t _skip = 0
-		, TextureInfo* _info = NULL
+		, TextureInfo* _info = NULL // 这个是返回值  返回纹理的格式信息
 		);
 
 	/// Create 2D texture.
@@ -2737,9 +2766,9 @@ namespace bgfx
 	///   - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
 	///     sampling.
 	///
-	/// @param[in] _mem Texture data. If `_mem` is non-NULL, created texture will be immutable. If
-	///   `_mem` is NULL content of the texture is uninitialized. When `_numLayers` is more than
-	///   1, expected memory layout is texture and all mips together for each array element.
+	/// @param[in] _mem Texture data. If `_mem` is non-NULL, created texture will be immutable. If    如果创建的时候 _mem 不是null 那么纹理是不可变的
+	///   `_mem` is NULL content of the texture is uninitialized. When `_numLayers` is more than            如果创建的时候 _mem 是null  纹理的内容未初始化
+	///   1, expected memory layout is texture and all mips together for each array element.  当 `_numLayers` 大于 1 时，预期的内存布局是纹理的  和 每个数组元素的所有 mips ???
 	///
 	/// @attention C99 equivalent is `bgfx_create_texture_2d`.
 	///
@@ -2747,13 +2776,13 @@ namespace bgfx
 		  uint16_t _width
 		, uint16_t _height
 		, bool     _hasMips
-		, uint16_t _numLayers
-		, TextureFormat::Enum _format
+		, uint16_t _numLayers  // 数组纹理的层数
+		, TextureFormat::Enum _format // 可以创建深度目标纹理
 		, uint64_t _flags = BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE
 		, const Memory* _mem = NULL
 		);
 
-	/// Create texture with size based on backbuffer ratio. Texture will maintain ratio
+	/// Create texture with size based on backbuffer ratio. Texture will maintain ratio  根据 后缓冲比例 _ratio 创建纹理，纹理会保持比例在后缓冲分辨率修改的时候
 	/// if back buffer resolution changes.
 	///
 	/// @param[in] _ratio Frame buffer size in respect to back-buffer size. See:
@@ -2772,7 +2801,7 @@ namespace bgfx
 	/// @attention C99 equivalent is `bgfx_create_texture_2d_scaled`.
 	///
 	TextureHandle createTexture2D(
-		  BackbufferRatio::Enum _ratio
+		  BackbufferRatio::Enum _ratio  // ???? 什么场景使用 ???
 		, bool _hasMips
 		, uint16_t _numLayers
 		, TextureFormat::Enum _format
@@ -2798,7 +2827,7 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_create_texture_3d`.
 	///
-	TextureHandle createTexture3D(
+	TextureHandle createTexture3D(  // 创建3d纹理
 		  uint16_t _width
 		, uint16_t _height
 		, uint16_t _depth
@@ -2828,7 +2857,7 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_create_texture_cube`.
 	///
-	TextureHandle createTextureCube(
+	TextureHandle createTextureCube( // 创建cube纹理 立方体纹理  6张图
 		  uint16_t _size
 		, bool _hasMips
 		, uint16_t _numLayers
@@ -2944,16 +2973,16 @@ namespace bgfx
 		, uint16_t _pitch = UINT16_MAX
 		);
 
-	/// Read back texture content.
+	/// Read back texture content. 读取纹理的内容
 	///
 	/// @param[in] _handle Texture handle.
 	/// @param[in] _data Destination buffer.
 	/// @param[in] _mip Mip level.
 	///
-	/// @returns Frame number when the result will be available. See: `bgfx::frame`.
+	/// @returns Frame number when the result will be available. See: `bgfx::frame`.    结果可用时的帧号 ??
 	///
-	/// @attention Texture must be created with `BGFX_TEXTURE_READ_BACK` flag.
-	/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_READ_BACK`.
+	/// @attention Texture must be created with `BGFX_TEXTURE_READ_BACK` flag.   纹理创建必须带有 BGFX_TEXTURE_READ_BACK 标记
+	/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_READ_BACK`.    设备要支持  BGFX_CAPS_TEXTURE_READ_BACK 这个能力
 	/// @attention C99 equivalent is `bgfx_read_texture`.
 	///
 	uint32_t readTexture(
@@ -2981,8 +3010,8 @@ namespace bgfx
 	///
 	/// @param[in] _handle Texture handle.
 	///
-	/// @returns Pointer to texture memory. If returned pointer is `NULL` direct access
-	///   is not available for this texture. If pointer is `UINTPTR_MAX` sentinel value
+	/// @returns Pointer to texture memory. If returned pointer is `NULL` direct access  如果返回null  纹理不可访问
+	///   is not available for this texture. If pointer is `UINTPTR_MAX` sentinel value    返回 UINTPTR_MAX 代表正在创建
 	///   it means texture is pending creation. Pointer returned can be cached and it
 	///   will be valid until texture is destroyed.
 	///
@@ -3001,7 +3030,7 @@ namespace bgfx
 	///
 	void destroy(TextureHandle _handle);
 
-	/// Create frame buffer (simple).
+	/// Create frame buffer (simple).  创建fbo
 	///
 	/// @param[in] _width Texture width.
 	/// @param[in] _height Texture height.
@@ -3024,7 +3053,7 @@ namespace bgfx
 		, uint64_t _textureFlags = BGFX_SAMPLER_U_CLAMP|BGFX_SAMPLER_V_CLAMP
 		);
 
-	/// Create frame buffer with size based on backbuffer ratio. Frame buffer will maintain ratio
+	/// Create frame buffer with size based on backbuffer ratio. Frame buffer will maintain ratio  创建fbo 按照比例
 	/// if back buffer resolution changes.
 	///
 	/// @param[in] _ratio Frame buffer size in respect to back-buffer size. See:
@@ -3047,7 +3076,7 @@ namespace bgfx
 		, uint64_t _textureFlags = BGFX_SAMPLER_U_CLAMP|BGFX_SAMPLER_V_CLAMP
 		);
 
-	/// Create MRT frame buffer from texture handles (simple).
+	/// Create MRT frame buffer from texture handles (simple).  给定纹理附件 创建fbo ??
 	///
 	/// @param[in] _num Number of texture attachments.
 	/// @param[in] _handles Texture attachments.
@@ -3143,22 +3172,36 @@ namespace bgfx
 	///
 	void destroy(FrameBufferHandle _handle);
 
-	/// Create shader uniform parameter.
+/*
+ 
+ bgfx::UniformTyp
+ 
+ Sampler, //!< Sampler.
+ End,     //!< Reserved, do not use.
+
+ Vec4,    //!< 4 floats vector.
+ Mat3,    //!< 3x3 matrix.
+ Mat4,    //!< 4x4 matrix.
+
+ 
+ */
+
+	/// Create shader uniform parameter.  创建shader的uniform参数
 	///
-	/// @param[in] _name Uniform name in shader.
-	/// @param[in] _type Type of uniform (See: `bgfx::UniformType`).
-	/// @param[in] _num Number of elements in array.
+	/// @param[in] _name Uniform name in shader.                                    shader中uniform的名字
+	/// @param[in] _type Type of uniform (See: `bgfx::UniformType`).        unform的类型
+	/// @param[in] _num Number of elements in array.                                元素数目
 	///
 	/// @returns Handle to uniform object.
 	///
 	/// @remarks
-	///   1. Uniform names are unique. It's valid to call `bgfx::createUniform`
+	///   1. Uniform names are unique. It's valid to call `bgfx::createUniform`   Uniform名字是唯一的   所以可以多次调用 createUniform 使用同样的名字  会返回同样的句柄 但是句柄的引用数目会增加1
 	///      multiple times with the same uniform name. The library will always
 	///      return the same handle, but the handle reference count will be
-	///      incremented. This means that the same number of `bgfx::destroyUniform`
+	///      incremented. This means that the same number of `bgfx::destroyUniform`   所以 createUniform destroyUniform要成对使用
 	///      must be called to properly destroy the uniform.
 	///
-	///   2. Predefined uniforms (declared in `bgfx_shader.sh`):
+	///   2. Predefined uniforms (declared in `bgfx_shader.sh`):                            预定义uniforms   声明在bgfx_shader.sh
 	///      - `u_viewRect vec4(x, y, width, height)` - view rectangle for current
 	///        view, in pixels.
 	///      - `u_viewTexel vec4(1.0/width, 1.0/height, undef, undef)` - inverse
@@ -3179,13 +3222,13 @@ namespace bgfx
 	///
 	UniformHandle createUniform(
 		  const char* _name
-		, UniformType::Enum _type
+		, UniformType::Enum _type // 只能是对齐类型
 		, uint16_t _num = 1
 		);
 
 	/// Retrieve uniform info.
 	///
-	/// @param[in] _handle Handle to uniform object.
+	/// @param[in] _handle Handle to uniform object.    获取跟定uniform句柄的uniform信息  跟 createUniform 传入的参数一样 包含类型和元素数目
 	/// @param[out] _info Uniform info.
 	///
 	/// @attention C99 equivalent is `bgfx_get_uniform_info`.
@@ -3203,7 +3246,7 @@ namespace bgfx
 	///
 	void destroy(UniformHandle _handle);
 
-	/// Create occlusion query.
+	/// Create occlusion query.    创建遮挡查询。
 	///
 	/// @returns Handle to occlusion query object.
 	///
@@ -3233,7 +3276,7 @@ namespace bgfx
 	///
 	void destroy(OcclusionQueryHandle _handle);
 
-	/// Set palette color value.
+	/// Set palette color value.  设置调色板颜色值 ？？？     调色板 用在什么地方 ???
 	///
 	/// @param[in] _index Index into palette.
 	/// @param[in] _rgba Packed 32-bit RGBA value.
@@ -3272,7 +3315,7 @@ namespace bgfx
 		, const float _rgba[4]
 		);
 
-	/// Set view name.
+	/// Set view name.  设置给定view id的view名字
 	///
 	/// @param[in] _id View id.
 	/// @param[in] _name View name.
@@ -3280,7 +3323,7 @@ namespace bgfx
 	/// @remarks
 	///   This is debug only feature.
 	///
-	///   In graphics debugger view name will appear as:
+	///   In graphics debugger view name will appear as:   在graphics debugger 中 view的名字是  ???
 	///
 	///       "nnnce <view name>"
 	///        ^  ^^ ^
@@ -3295,7 +3338,7 @@ namespace bgfx
 		, const char* _name
 		);
 
-	/// Set view rectangle. Draw primitive outside view will be clipped.
+	/// Set view rectangle. Draw primitive outside view will be clipped.   设置view的窗口  超过的图元会裁剪 ??  视口  ??  保存在Context::m_view[_id].setRect
 	///
 	/// @param[in] _id View id.
 	/// @param[in] _x Position x from the left corner of the window.
@@ -3318,7 +3361,7 @@ namespace bgfx
 	/// @param[in] _id View id.
 	/// @param[in] _x Position x from the left corner of the window.
 	/// @param[in] _y Position y from the top corner of the window.
-	/// @param[in] _ratio Width and height will be set in respect to back-buffer size. See:
+	/// @param[in] _ratio Width and height will be set in respect to back-buffer size. See:  与后buffer成比例ratio的宽高
 	///   `BackbufferRatio::Enum`.
 	///
 	/// @attention C99 equivalent is `bgfx_set_view_rect_ratio`.
@@ -3418,11 +3461,11 @@ namespace bgfx
 		, ViewMode::Enum _mode = ViewMode::Default
 		);
 
-	/// Set view frame buffer.
+	/// Set view frame buffer.     !!!! 设置View的FrameBuffer
 	///
 	/// @param[in] _id View id.
-	/// @param[in] _handle Frame buffer handle. Passing `BGFX_INVALID_HANDLE` as
-	///   frame buffer handle will draw primitives from this view into
+	/// @param[in] _handle Frame buffer handle. Passing `BGFX_INVALID_HANDLE` as  如果传入 BGFX_INVALID_HANDLE 作为 framebuffer句柄
+	///   frame buffer handle will draw primitives from this view into  它将从此 视图 中将图元 绘制到 默认后台缓冲区中。 ???
 	///   default back buffer.
 	///
 	/// @remarks
@@ -3435,7 +3478,7 @@ namespace bgfx
 		, FrameBufferHandle _handle
 		);
 
-	/// Set view view and projection matrices, all draw primitives in this
+	/// Set view view and projection matrices, all draw primitives in this  设置view的视图和投影矩阵  所有在这个视图中的图元都会应用这个矩阵
 	/// view will use these matrices.
 	///
 	/// @param[in] _id View id.
@@ -3450,7 +3493,7 @@ namespace bgfx
 		, const void* _proj
 		);
 
-	/// Post submit view reordering.
+	/// Post submit view reordering.  view的渲染顺序  ????
 	///
 	/// @param[in] _id First view id.
 	/// @param[in] _num Number of views to remap.
@@ -3461,11 +3504,11 @@ namespace bgfx
 	///
 	void setViewOrder(
 		  ViewId _id = 0
-		, uint16_t _num = UINT16_MAX
+		, uint16_t _num = UINT16_MAX  // _remap数组长度
 		, const ViewId* _remap = NULL
 		);
 
-	/// Reset all view settings to default.
+	/// Reset all view settings to default.  重置view的所有参数到默认
 	///
 	/// @param[in] _id View id.
 	///
@@ -3473,13 +3516,22 @@ namespace bgfx
 	///
 	void resetView(ViewId _id);
 
+
+
+    /*
+        下面 接口 只设置到 Context::m_encoder0  Context:;m_encoder[0] 几乎是原来 struct Encoder中的全部接口
+     
+
+    */
+
 	/// Sets debug marker.
 	///
 	/// @attention C99 equivalent is `bgfx_set_marker`.
 	///
 	void setMarker(const char* _marker);
 
-	/// Set render states for draw primitive.
+
+	/// Set render states for draw primitive.  设置绘制图元的渲染状态          混合方式因子   面剔除  深度测试 MSAA  设置到Context::m_encoder0  也就是 m_encoder[0]
 	///
 	/// @param[in] _state State flags. Default state for primitive type is
 	///   triangles. See: `BGFX_STATE_DEFAULT`.
@@ -4147,12 +4199,12 @@ namespace bgfx
 
 	/// Request screen shot of window back buffer.
 	///
-	/// @param[in] _handle Frame buffer handle. If handle is `BGFX_INVALID_HANDLE` request will be
-	///   made for main window back buffer.
-	/// @param[in] _filePath Will be passed to `bgfx::CallbackI::screenShot` callback.
+	/// @param[in] _handle Frame buffer handle. If handle is `BGFX_INVALID_HANDLE` request will be  要读取的framebuffer句柄
+	///   made for main window back buffer.                                     句柄无效的话 就是 主窗口的后缓冲
+	/// @param[in] _filePath Will be passed to `bgfx::CallbackI::screenShot` callback.  CallbackI::screenShot 回调
 	///
 	/// @remarks
-	///   `bgfx::CallbackI::screenShot` must be implemented.
+	///   `bgfx::CallbackI::screenShot` must be implemented.  要实现回调函数
 	///
 	/// @attention Frame buffer handle must be created with OS' target native window handle.
 	/// @attention C99 equivalent is `bgfx_request_screen_shot`.

@@ -73,7 +73,7 @@ namespace bgfx
 
 	VertexLayout& VertexLayout::begin(RendererType::Enum _renderer)
 	{
-		m_hash = _renderer; // use hash to store renderer type while building VertexLayout.
+		m_hash = _renderer; // use hash to store renderer type while building VertexLayout. 在end之前，begin开始构建layout m_hash是作为render api类型 用在VertexLayout::add
 		m_stride = 0;
 		bx::memSet(m_attributes, 0xff, sizeof(m_attributes) );
 		bx::memSet(m_offset, 0, sizeof(m_offset) );
@@ -100,7 +100,9 @@ namespace bgfx
 		m_attributes[_attrib] = encodedNorm|encodedType|encodedNum|encodeAsInt;
 
 		m_offset[_attrib] = m_stride;
-		m_stride += (*s_attribTypeSize[m_hash])[_type][_num-1];
+		m_stride += (*s_attribTypeSize[m_hash])[_type][_num-1]; // m_hash 这时候是 render api 类型
+        
+        // 根据不同render api类型 + 不同数据类型(Uint8 Uint10 Int16 Half Float )+ 不同数目(1~4)  来计算偏移
 
 		return *this;
 	}

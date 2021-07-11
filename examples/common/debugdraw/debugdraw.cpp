@@ -1050,7 +1050,7 @@ struct DebugDrawEncoderImpl
 
 	void begin(bgfx::ViewId _viewId, bool _depthTestLess, bgfx::Encoder* _encoder)
 	{
-		BX_ASSERT(State::Count == m_state);
+		BX_ASSERT(State::Count == m_state, "DebugDrawEncoderImpl");
 
 		m_viewId        = _viewId;
 		m_encoder       = _encoder == NULL ? m_defaultEncoder : _encoder;
@@ -1095,14 +1095,14 @@ struct DebugDrawEncoderImpl
 
 	void push()
 	{
-		BX_ASSERT(State::Count != m_state);
+		BX_ASSERT(State::Count != m_state, "DebugDrawEncoderImpl push");
 		++m_stack;
 		m_attrib[m_stack] = m_attrib[m_stack-1];
 	}
 
 	void pop()
 	{
-		BX_ASSERT(State::Count != m_state);
+        BX_ASSERT(State::Count != m_state, "DebugDrawEncoderImpl pop");
 		const Attrib& curr = m_attrib[m_stack];
 		const Attrib& prev = m_attrib[m_stack-1];
 		if (curr.m_stipple != prev.m_stipple

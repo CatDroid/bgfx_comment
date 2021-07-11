@@ -146,7 +146,7 @@ namespace bgfx { namespace mtl
 	MTL_CLASS(Buffer)
 		void* contents()
 		{
-			return m_obj.contents;
+			return m_obj.contents; // 这个是 MTLBuffer.contents
 		}
 
 		uint32_t length()
@@ -347,12 +347,12 @@ namespace bgfx { namespace mtl
 		id <MTLRenderPipelineState> newRenderPipelineStateWithDescriptor(
 			  MTLRenderPipelineDescriptor* _descriptor
 			, MTLPipelineOption _options
-			, MTLRenderPipelineReflection** _reflection
+			, MTLRenderPipelineReflection** _reflection // 反射shader的参数
 			)
 		{
 			NSError* error;
 			id <MTLRenderPipelineState> state = [m_obj newRenderPipelineStateWithDescriptor:_descriptor options:_options reflection:_reflection error:&error];
-
+            // 可以获取到跟这个pipelineState相关shader函数的 attribute[[0]] 等参数
 			BX_WARN(NULL == error
 				, "newRenderPipelineStateWithDescriptor failed: %s"
 				, [error.localizedDescription cStringUsingEncoding:NSASCIIStringEncoding]
@@ -907,8 +907,8 @@ namespace bgfx { namespace mtl
 			release(m_cps);
 		}
 
-		UniformBuffer* m_vshConstantBuffer;
-		UniformBuffer* m_fshConstantBuffer;
+		UniformBuffer* m_vshConstantBuffer; // vs 对应的 uniformBuffer
+		UniformBuffer* m_fshConstantBuffer; // ps 对应的 uniformBuffer
 
 		uint32_t m_vshConstantBufferSize;
 		uint32_t m_vshConstantBufferAlignment;
@@ -920,7 +920,7 @@ namespace bgfx { namespace mtl
 			BindToVertexShader   = 1 << 0,
 			BindToFragmentShader = 1 << 1,
 		};
-		uint8_t m_bindingTypes[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
+		uint8_t m_bindingTypes[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS]; // 下标 是形参序号   值是上面的 BindToFragmentShader  BindToVertexShader 代表参数绑定到哪个vert还是frag
 
 		uint16_t 	m_numThreads[3];
 

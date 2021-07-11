@@ -35,6 +35,9 @@ namespace bgfx
 			, "Must be called from render thread."            \
 			)
 
+// BGFX_API_THREAD_MAGIC == s_threadIndex   这个是主线程
+// ~BGFX_API_THREAD_MAGIC == s_threadIndex  这个是渲染线程
+
 #else
 #	define BGFX_CHECK_API_THREAD()
 #	define BGFX_CHECK_RENDER_THREAD()
@@ -294,9 +297,9 @@ namespace bgfx
 
 	static ThreadData s_threadIndex(0);
 #elif !BGFX_CONFIG_MULTITHREADED
-	static uint32_t s_threadIndex(0);
+	static uint32_t s_threadIndex(0); // 没有配置 多线程
 #else
-	static BX_THREAD_LOCAL uint32_t s_threadIndex(0);
+	static BX_THREAD_LOCAL uint32_t s_threadIndex(0); // 配置了多线程 并且 BX_THREAD_LOCAL=1  MAC是这个
 #endif
 
 	static Context* s_ctx = NULL;
@@ -952,7 +955,7 @@ namespace bgfx
 		return UniformType::Count;
 	}
 
-	static const char* s_predefinedName[PredefinedUniform::Count] =
+	static const char* s_predefinedName[PredefinedUniform::Count] = // uniform预制的名字
 	{
 		"u_viewRect",
 		"u_viewTexel",
@@ -973,7 +976,7 @@ namespace bgfx
 		return s_predefinedName[_enum];
 	}
 
-	PredefinedUniform::Enum nameToPredefinedUniformEnum(const char* _name)
+	PredefinedUniform::Enum nameToPredefinedUniformEnum(const char* _name) // 对比是否预制的uniform名字
 	{
 		for (uint32_t ii = 0; ii < PredefinedUniform::Count; ++ii)
 		{
@@ -1451,27 +1454,41 @@ namespace bgfx
 		bx::radixSort(m_blitKeys, (uint32_t*)&s_ctx->m_tempKeys, m_numBlitItems);
 	}
 
+    // 在还没有创建Context实例初始化，就调用这个，会被认为是外部主动调用renderFrame (s_renderFrameCalled=true)
+    // 并标记 当前线程 s_threadIndex = ~BGFX_API_THREAD_MAGIC 为渲染线程
+    //
 	RenderFrame::Enum renderFrame(int32_t _msecs)
 	{
 		if (BX_ENABLED(BGFX_CONFIG_MULTITHREADED) )
 		{
-			if (s_renderFrameCalled)
+			if (s_renderFrameCalled) // 第一次进来还是false
 			{
 				BGFX_CHECK_RENDER_THREAD();
+                // printf("m_singleThreaded = %d\n", (NULL != s_ctx && s_ctx->m_singleThreaded)); // 0
+                // printf("~BGFX_API_THREAD_MAGIC == s_threadIndex = %d\n", ~BGFX_API_THREAD_MAGIC == s_threadIndex); // 1
 			}
 
-			if (NULL == s_ctx)
+			if (NULL == s_ctx) // 创建的线程还没有调用bgfx::init 主线程就会跑到这里，
 			{
 				s_renderFrameCalled = true;
-				s_threadIndex = ~BGFX_API_THREAD_MAGIC;
+				s_threadIndex = ~BGFX_API_THREAD_MAGIC; // 主线程会设置这个  s_threadIndex是个TLS  主线程的s_threadIndex是~BGFX_API_THREAD_MAGIC
 				return RenderFrame::NoContext;
 			}
+            
+            /*
+             BGFX_CHECK_API_THREAD
+             BGFX_CHECK_RENDER_THREAD 
+             
+             // BGFX_API_THREAD_MAGIC  == s_threadIndex   这个是api线程
+             // ~BGFX_API_THREAD_MAGIC == s_threadIndex   这个是渲染线程 (demo是0号线程)
+             
+             */
 
 			int32_t msecs = -1 == _msecs
 				? BGFX_CONFIG_API_SEMAPHORE_TIMEOUT
 				: _msecs
 				;
-			RenderFrame::Enum result = s_ctx->renderFrame(msecs);
+			RenderFrame::Enum result = s_ctx->renderFrame(msecs); // Context:renderFrame
 			if (RenderFrame::Exiting == result)
 			{
 				Context* ctx = s_ctx;
@@ -1481,7 +1498,7 @@ namespace bgfx
 			}
 
 			return result;
-		}
+		} // 如果没有配置多线程 那么不用调用这个方法 而是直接调用 bgfx::frame(); -- Context::swap(里面会调用 Context::renderFrame)
 
 		BX_ASSERT(false, "This call only makes sense if used with multi-threaded renderer.");
 		return RenderFrame::NoContext;
@@ -1489,25 +1506,29 @@ namespace bgfx
 
 	const uint32_t g_uniformTypeSize[UniformType::Count+1] =
 	{
-		sizeof(int32_t),
-		0,
-		4*sizeof(float),
-		3*3*sizeof(float),
-		4*4*sizeof(float),
-		1,
+		sizeof(int32_t), // Sampler     
+		0, // End
+		4*sizeof(float), // Vec4
+		3*3*sizeof(float), // Mat3
+		4*4*sizeof(float), // Mat4
+		1, // Count
 	};
+
+    // writeUniformHandle  copy=false    << RendderContextMtl::processArguments   _loc shader形参结构体中的偏移
+    // writeUniform         copy=true    << bgfx::setUniform  _loc UnformHandle 索引
 
 	void UniformBuffer::writeUniform(UniformType::Enum _type, uint16_t _loc, const void* _value, uint16_t _num)
 	{
-		uint32_t opcode = encodeOpcode(_type, _loc, _num, true);
+		uint32_t opcode = encodeOpcode(_type, _loc, _num, true); // 需要copy ??
 		write(opcode);
-		write(_value, g_uniformTypeSize[_type]*_num);
+		write(_value, g_uniformTypeSize[_type]*_num); // 根据类型大小和数量 写入 UniformBuffer   UniformBuffer当前偏移是m_pos
 	}
 
+    // 没有 read UniformHandle  //  void RenderContext::commit(UniformBuffer& _uniformBuffer)
 	void UniformBuffer::writeUniformHandle(UniformType::Enum _type, uint16_t _loc, UniformHandle _handle, uint16_t _num)
 	{
-		uint32_t opcode = encodeOpcode(_type, _loc, _num, false);
-		write(opcode);
+		uint32_t opcode = encodeOpcode(_type, _loc, _num, false); // 包这个unfirom变量 的类型  位置  数目 不拷贝? +  句柄  编码到UniformBuffer ??
+		write(opcode);  // 4个字节 + 2个字节(句柄)
 		write(&_handle, sizeof(UniformHandle) );
 	}
 
@@ -1742,7 +1763,7 @@ namespace bgfx
 		BX_TRACE("\t[%c] Hi-DPI",             0 != (reset & BGFX_RESET_HIDPI)              ? 'x' : ' ');
 		BX_TRACE("\t[%c] Depth Clamp",        0 != (reset & BGFX_RESET_DEPTH_CLAMP)        ? 'x' : ' ');
 		BX_TRACE("\t[%c] Suspend",            0 != (reset & BGFX_RESET_SUSPEND)            ? 'x' : ' ');
-	}
+	} // 打印当前的选择 如果是 x 代表开启了
 
 	TextureFormat::Enum getViableTextureFormat(const bimg::ImageContainer& _imageContainer)
 	{
@@ -1903,15 +1924,17 @@ namespace bgfx
 #if BGFX_CONFIG_MULTITHREADED
 		m_render->create(_init.limits.minResourceCbSize);
 
-		if (s_renderFrameCalled)
+		if (s_renderFrameCalled) // true
 		{
 			// When bgfx::renderFrame is called before init render thread
 			// should not be created.
 			BX_TRACE("Application called bgfx::renderFrame directly, not creating render thread.");
 			m_singleThreaded = true
-				&& ~BGFX_API_THREAD_MAGIC == s_threadIndex
-				;
-		}
+				&& ~BGFX_API_THREAD_MAGIC == s_threadIndex // s_threadIndex 是个线程栈上的变量 s_threadIndex应该是0 只有调用renderFrame的线程被标记为  ~BGFX_API_THREAD_MAGIC
+				; // false
+		} // 如果  bgfx::renderFrame 先调用 并在同一线程上调用 bgfx::init 就是同一个线程 m_singleThreaded = true
+        // 如果发现 bgfx::renderFrame 被调用了(s_renderFrameCalled=true)，而且发现当前线程标记刚好也是 ~BGFX_API_THREAD_MAGIC，
+        // 就会被认为实际是同一个线程执行frame m_singleThreaded=true
 		else
 		{
 			BX_TRACE("Creating rendering thread.");
@@ -1925,8 +1948,11 @@ namespace bgfx
 
 		BX_TRACE("Running in %s-threaded mode", m_singleThreaded ? "single" : "multi");
 
-		s_threadIndex = BGFX_API_THREAD_MAGIC;
-
+		s_threadIndex = BGFX_API_THREAD_MAGIC; // 这里就设置为  BGFX_API_THREAD_MAGIC ??  这个是API线程 调用renderFrame的是 render线程
+        // 调用 bgfx::init bgfx::frame 都是 BGFX_API_THREAD_MAGIC API线程 Thread-6
+        
+        // Demo Thread-1 是渲染线程 调用 renderFrame
+        
 		for (uint32_t ii = 0; ii < BX_COUNTOF(m_viewRemap); ++ii)
 		{
 			m_viewRemap[ii] = ViewId(ii);
@@ -1950,9 +1976,9 @@ namespace bgfx
 		CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::RendererInit);
 		cmdbuf.write(_init);
 
-		frameNoRenderWait();
+		frameNoRenderWait(); // --> swap(); apiSemPost();
 
-		m_encoderHandle = bx::createHandleAlloc(g_allocator, _init.limits.maxEncoders);
+		m_encoderHandle = bx::createHandleAlloc(g_allocator, _init.limits.maxEncoders); // 8
 		m_encoder       = (EncoderImpl*)BX_ALIGNED_ALLOC(g_allocator, sizeof(EncoderImpl)*_init.limits.maxEncoders, BX_ALIGNOF(EncoderImpl) );
 		m_encoderStats  = (EncoderStats*)BX_ALLOC(g_allocator, sizeof(EncoderStats)*_init.limits.maxEncoders);
 		for (uint32_t ii = 0, num = _init.limits.maxEncoders; ii < num; ++ii)
@@ -1962,15 +1988,20 @@ namespace bgfx
 
 		uint16_t idx = m_encoderHandle->alloc();
 		BX_ASSERT(0 == idx, "Internal encoder handle is not 0 (idx %d).", idx); BX_UNUSED(idx);
-		m_encoder[0].begin(m_submit, 0);
+		m_encoder[0].begin(m_submit, 0); // frame() 中会把 encoder0.end()
 		m_encoder0 = BX_ENABLED(BGFX_CONFIG_ENCODER_API_ONLY)
 			? NULL
 			: reinterpret_cast<Encoder*>(&m_encoder[0])
 			;
+        
+        if (BX_ENABLED(BGFX_CONFIG_ENCODER_API_ONLY))
+        {
+            BX_TRACE( "bgfx is configured to allow only encoder API. See: `BGFX_CONFIG_ENCODER_API_ONLY`.");
+        }
 
 		// Make sure renderer init is called from render thread.
 		// g_caps is initialized and available after this point.
-		frame();
+		frame(); // 到这里 Context.m_numEncoders = 0 , m_encoder0 = m_encoder[0]  里面也会再调用 frameNoRenderWait
 
 		if (!m_rendererInitialized)
 		{
@@ -2178,11 +2209,19 @@ namespace bgfx
 		}
 	}
 
-	void Context::freeDynamicBuffers()
+	void Context::freeDynamicBuffers() // 动态buffer ???  顶点buffer句柄 索引buffer句柄 遮挡查询  ???
 	{
+        /*
+         会在Frame* m_submit 的 mCmdPost 加入命令
+         
+         DestroyIndexBuffer,
+         DestroyVertexBuffer,
+         
+         
+         */
 		for (uint16_t ii = 0, num = m_numFreeDynamicIndexBufferHandles; ii < num; ++ii)
 		{
-			destroyDynamicIndexBufferInternal(m_freeDynamicIndexBufferHandle[ii]);
+			destroyDynamicIndexBufferInternal(m_freeDynamicIndexBufferHandle[ii]); // DynamicIndexBufferHandle  也就是只有 _handle.idx ？
 		}
 		m_numFreeDynamicIndexBufferHandles = 0;
 
@@ -2195,7 +2234,7 @@ namespace bgfx
 		for (uint16_t ii = 0, num = m_numFreeOcclusionQueryHandles; ii < num; ++ii)
 		{
 			m_occlusionQueryHandle.free(m_freeOcclusionQueryHandle[ii].idx);
-		}
+		} // ?? 这个啥 不用加什么命令到 mCmdPost
 		m_numFreeOcclusionQueryHandles = 0;
 	}
 
@@ -2208,7 +2247,7 @@ namespace bgfx
 
 		for (uint16_t ii = 0, num = _frame->m_freeVertexBuffer.getNumQueued(); ii < num; ++ii)
 		{
-			destroyVertexBufferInternal(_frame->m_freeVertexBuffer.get(ii));
+			destroyVertexBufferInternal(_frame->m_freeVertexBuffer.get(ii)); // 插入命令 DestroyVertexLayout
 		}
 
 		for (uint16_t ii = 0, num = _frame->m_freeVertexLayout.getNumQueued(); ii < num; ++ii)
@@ -2244,21 +2283,25 @@ namespace bgfx
 
 	Encoder* Context::begin(bool _forThread)
 	{
-		EncoderImpl* encoder = &m_encoder[0];
+		EncoderImpl* encoder = &m_encoder[0]; // 如果么亿欧配置多线程 就是用这个
 
 #if BGFX_CONFIG_MULTITHREADED
 		if (_forThread || BGFX_API_THREAD_MAGIC != s_threadIndex)
 		{
 			bx::MutexScope scopeLock(m_encoderApiLock);
 
-			uint16_t idx = m_encoderHandle->alloc();
+			uint16_t idx = m_encoderHandle->alloc();  // 这个返回是 1 2 3  不会是1
 			if (kInvalidHandle == idx)
 			{
 				return NULL;
 			}
+            
+            // 这两个数目应该是一样的
+            // Context::m_frame[0|1]->m_uniformBuffer[THREAD_NUM]
+            // Context::m_encoder[THREAD_NUM]
 
-			encoder = &m_encoder[idx];
-			encoder->begin(m_submit, uint8_t(idx) );
+			encoder = &m_encoder[idx]; // 多线程会取出一个 m_encoder是个数组 EncoderImpl*
+			encoder->begin(m_submit, uint8_t(idx) ); // EncoderImpl 有多少个  idx 就有多大, 传入这个可以对应Frame.uniformBuffer[线程号] <---> 跟encoder对应
 		}
 #else
 		BX_UNUSED(_forThread);
@@ -2274,32 +2317,32 @@ namespace bgfx
 		if (encoder != &m_encoder[0])
 		{
 			encoder->end(true);
-			m_encoderEndSem.post();
+			m_encoderEndSem.post(); // 编码完成信号量 + 1   bgfx::frame 会等待 bgfx::begin的数目 的 bgfx::end 
 		}
 #else
 		BX_UNUSED(_encoder);
 #endif // BGFX_CONFIG_MULTITHREADED
 	}
 
-	uint32_t Context::frame(bool _capture)
+	uint32_t Context::frame(bool _capture) // 一帧已经ready了 准备渲染
 	{
 		m_encoder[0].end(true);
 
 #if BGFX_CONFIG_MULTITHREADED
 		bx::MutexScope resourceApiScope(m_resourceApiLock);
 
-		encoderApiWait();
+		encoderApiWait(); // !!! 等待所有的encoder完成   新的一帧开始 ???  清除一下handle ？ //  [api|render|encoderApi]SemWait  等待所有的encoder的end信号
 		bx::MutexScope encoderApiScope(m_encoderApiLock);
 #else
 		encoderApiWait();
 #endif // BGFX_CONFIG_MULTITHREADED
 
-		m_submit->m_capture = _capture;
+		m_submit->m_capture = _capture; // 记录这一帧是否需要录制 
 
 		BGFX_PROFILER_SCOPE("bgfx/API thread frame", 0xff2040ff);
 		// wait for render thread to finish
-		renderSemWait();
-		frameNoRenderWait();
+		renderSemWait();  //     [api|render]SemWait   如果api线程和render线程 分开的话，这里是需要   !!!等待渲染线程完成
+		frameNoRenderWait(); //  swap  + apiSemPost    这里会swap Frame* m_submit m_render
 
 		m_encoder[0].begin(m_submit, 0);
 
@@ -2308,42 +2351,55 @@ namespace bgfx
 
 	void Context::frameNoRenderWait()
 	{
-		swap();
+		swap(); // swap只是调换了 m_submit m_render 没有通知渲染线程
 
 		// release render thread
-		apiSemPost();
+		apiSemPost(); // 必须每次调用 否则主线程就不能渲染了  bgfx::renderFrame()--> Context::renderFrame() 会等待这个信号
+        
+        // 这里相当于 bgfx::frame() 和 bgfx::renderFrame() 的同步
 	}
 
-	void Context::swap()
+/*
+ 
+ submit在3个用户创建的线程 （encoderImpl = bgfx::begin bgfx::commit bgfx::end  ）
+ bgfx::frame -> context::frame -> context::swap 在一个线程
+ bgfx::renderframe -> context::flip  context::renderFrame  -> RenderContextMtl:submit(metal draw)  在应用主线程
+ 
+ */
+	void Context::swap() // bgfx::frame()  --- renderFrame(单线程)   多线程的话 renderFrame在主线程0中不断调用
 	{
 		freeDynamicBuffers();
-		m_submit->m_resolution = m_init.resolution;
-		m_init.resolution.reset &= ~BGFX_RESET_INTERNAL_FORCE;
+		m_submit->m_resolution = m_init.resolution; // 复制到m_resolution ？？？ 为啥
+		m_init.resolution.reset &= ~BGFX_RESET_INTERNAL_FORCE; // 初始化时候就是0 这里清除没有作用 ??
 		m_submit->m_debug = m_debug;
-		m_submit->m_perfStats.numViews = 0;
+		m_submit->m_perfStats.numViews = 0; // ??? 啥作用
 
-		bx::memCopy(m_submit->m_viewRemap, m_viewRemap, sizeof(m_viewRemap) );
+		bx::memCopy(m_submit->m_viewRemap, m_viewRemap, sizeof(m_viewRemap) ); // 把当前context的 m_viewRemap m_view 复制给到 Frame* m_submit
 		bx::memCopy(m_submit->m_view, m_view, sizeof(m_view) );
+        // View m_view[256]             主要保存FrameBuffer句柄 clear颜色 裁减区域 Matrix4投影和视图矩阵
+        // ViewId m_viewRemap[256]      ViewId uint16_t
 
+    
+        
 		if (m_colorPaletteDirty > 0)
 		{
 			--m_colorPaletteDirty;
 			bx::memCopy(m_submit->m_colorPalette, m_clearColor, sizeof(m_clearColor) );
 		}
 
-		freeAllHandles(m_submit);
-		m_submit->resetFreeHandles();
+		freeAllHandles(m_submit); // 调用 context.[xxx]Handle.free( _frame->m_free[xxx]]Buffer )  归还给 context ??
+		m_submit->resetFreeHandles(); // _frame->m_free[xxx]Buffer.queue清空 num=0
 
-		m_submit->finish();
+		m_submit->finish(); // pre和post的CommandBuffer都插入 end命令
 
-		bx::swap(m_render, m_submit);
+		bx::swap(m_render, m_submit); // 相当于 把 当前所有submit的提交到 render线程 来执行command
 
-		bx::memCopy(m_render->m_occlusion, m_submit->m_occlusion, sizeof(m_submit->m_occlusion) );
+		bx::memCopy(m_render->m_occlusion, m_submit->m_occlusion, sizeof(m_submit->m_occlusion) );// 之前一帧的遮挡查询要给到下一帧 ？？
 
 		if (!BX_ENABLED(BGFX_CONFIG_MULTITHREADED)
 		||  m_singleThreaded)
 		{
-			renderFrame();
+			renderFrame();  // 如果是配置成单线程 还是 运行时候设置为单线程 都会在bgfx::init bgfx::frame的线程直接bgfx::renderframe
 		}
 
 		m_frames++;
@@ -2351,7 +2407,7 @@ namespace bgfx
 
 		bx::memSet(m_seq, 0, sizeof(m_seq) );
 
-		m_submit->m_textVideoMem->resize(
+		m_submit->m_textVideoMem->resize( // ??? 啥作用 ???
 			  m_render->m_textVideoMem->m_small
 			, m_init.resolution.width
 			, m_init.resolution.height
@@ -2417,13 +2473,13 @@ namespace bgfx
 		NSAutoreleasePoolScope pool;
 #endif // BX_PLATFORM_OSX
 
-		if (!m_flipAfterRender)
+		if (!m_flipAfterRender) // m_flipAfterRender = false
 		{
 			BGFX_PROFILER_SCOPE("bgfx/flip", 0xff2040ff);
-			flip();
+			flip(); // 要么在前面flip 要么在后面flip
 		}
 
-		if (apiSemWait(_msecs) )
+		if (apiSemWait(_msecs) ) // 卡在这里 要等bgfx::init执行完毕 并且 每次渲染都要等这个信号
 		{
 			{
 				BGFX_PROFILER_SCOPE("bgfx/Exec commands pre", 0xff2040ff);
@@ -2434,7 +2490,7 @@ namespace bgfx
 			{
 				{
 					BGFX_PROFILER_SCOPE("bgfx/Render submit", 0xff2040ff);
-					m_renderCtx->submit(m_render, m_clearQuad, m_textVideoMemBlitter);
+					m_renderCtx->submit(m_render, m_clearQuad, m_textVideoMemBlitter); // RenderContextMtl 渲染指令 submit metal drawPrimitives
 					m_flipped = false;
 				}
 
@@ -2472,10 +2528,11 @@ namespace bgfx
 			;
 	}
 
+    // bgfx::rendererUpdateUniforms 全局函数 bgfx_p.h
 	void rendererUpdateUniforms(RendererContextI* _renderCtx, UniformBuffer* _uniformBuffer, uint32_t _begin, uint32_t _end)
 	{
-		_uniformBuffer->reset(_begin);
-		while (_uniformBuffer->getPos() < _end)
+		_uniformBuffer->reset(_begin); // UniformBuffer命令重置到 _begin位置  对应这次渲染的开始?? 
+		while (_uniformBuffer->getPos() < _end) // 只处理 从begin到end 这个范围的 UniformBuffer 中的指令
 		{
 			uint32_t opcode = _uniformBuffer->read();
 
@@ -2484,6 +2541,12 @@ namespace bgfx
 				break;
 			}
 
+            // 这个是存放cpu数据的地方  可能有多次调用setUniform修改/比如同个参数rgba中的r或者b
+            
+            // 在渲染前这里会执行所有的setUniform  更新到对应这个UniformHandle在 RenderContextMtl::m_uniforms[UniformHandle.idx] 上的buffer
+            
+            // 同一个uniform变量(名字) 都用同一个UniformHandle ，并且对应同一个cpu buffer, RenderContextMtl::m_uniforms[UniformHandle.idx]
+            
 			UniformType::Enum type;
 			uint16_t loc;
 			uint16_t num;
@@ -2494,9 +2557,9 @@ namespace bgfx
 			const char* data = _uniformBuffer->read(size);
 			if (UniformType::Count > type)
 			{
-				if (copy)
+				if (copy) // bgfx::setUniform
 				{
-					_renderCtx->updateUniform(loc, data, size);
+					_renderCtx->updateUniform(loc, data, size); // 设置到 RenderContextMtl::m_uniforms[loc]  loc是 createUniform返回的 UnformHandle句柄 
 				}
 				else
 				{
@@ -2906,11 +2969,11 @@ namespace bgfx
 					_cmdbuf.read(layoutHandle);
 
 					uint16_t flags;
-					_cmdbuf.read(flags);
+					_cmdbuf.read(flags); // 从命令队列中 读取回4个参数
 
 					m_renderCtx->createVertexBuffer(handle, mem, layoutHandle, flags);
 
-					release(mem);
+					release(mem); // 这里释放 struct Memory
 				}
 				break;
 
@@ -3126,7 +3189,7 @@ namespace bgfx
 				{
 					BGFX_PROFILER_SCOPE("UpdateTexture", 0xff2040ff);
 
-					if (m_textureUpdateBatch.isFull() )
+					if (m_textureUpdateBatch.isFull() ) // 什么操作  ???  满的话 直接batch ???
 					{
 						flushTextureUpdateBatch(_cmdbuf);
 					}
@@ -3153,7 +3216,7 @@ namespace bgfx
 						| mip
 						;
 
-					m_textureUpdateBatch.add(key, value);
+					m_textureUpdateBatch.add(key, value); // 批处理 ??
 				}
 				break;
 
@@ -3216,7 +3279,7 @@ namespace bgfx
 					_cmdbuf.read(handle);
 
 					bool window;
-					_cmdbuf.read(window);
+					_cmdbuf.read(window); // 命令中会先标记 是创建 跟窗口相关的FrameBuferMtl(需要nwh包含CAMetalLayer)还是窗口无关的(需要给Attament包含纹理句柄)
 
 					if (window)
 					{
@@ -3417,7 +3480,7 @@ namespace bgfx
 	}
 
 	Init::Limits::Limits()
-		: maxEncoders(BGFX_CONFIG_DEFAULT_MAX_ENCODERS)
+		: maxEncoders(BGFX_CONFIG_DEFAULT_MAX_ENCODERS) // 默认限制8
 		, minResourceCbSize(BGFX_CONFIG_MIN_RESOURCE_COMMAND_BUFFER_SIZE)
 		, transientVbSize(BGFX_CONFIG_TRANSIENT_VERTEX_BUFFER_SIZE)
 		, transientIbSize(BGFX_CONFIG_TRANSIENT_INDEX_BUFFER_SIZE)
@@ -3454,11 +3517,11 @@ namespace bgfx
 			return false;
 		}
 
-		Init init = _userInit;
+		Init init = _userInit; // 用户初始化数据。
 
 		init.limits.maxEncoders       = bx::clamp<uint16_t>(init.limits.maxEncoders, 1, (0 != BGFX_CONFIG_MULTITHREADED) ? 128 : 1);
 		init.limits.minResourceCbSize = bx::min<uint32_t>(init.limits.minResourceCbSize, BGFX_CONFIG_MIN_RESOURCE_COMMAND_BUFFER_SIZE);
-
+        // 如果多线程 init.limits.maxEncoders 设置为 8 (虽然这里写了128) init.limits.minResourceCbSize 设置为 65536
 		struct ErrorState
 		{
 			enum Enum
@@ -3512,13 +3575,13 @@ namespace bgfx
 		g_caps.limits.maxUniforms             = BGFX_CONFIG_MAX_UNIFORMS;
 		g_caps.limits.maxOcclusionQueries     = BGFX_CONFIG_MAX_OCCLUSION_QUERIES;
 		g_caps.limits.maxFBAttachments        = 1;
-		g_caps.limits.maxEncoders             = init.limits.maxEncoders;
-		g_caps.limits.minResourceCbSize       = init.limits.minResourceCbSize;
+		g_caps.limits.maxEncoders             = init.limits.maxEncoders; // = 8
+		g_caps.limits.minResourceCbSize       = init.limits.minResourceCbSize; // 65536
 		g_caps.limits.transientVbSize         = init.limits.transientVbSize;
 		g_caps.limits.transientIbSize         = init.limits.transientIbSize;
 
 		g_caps.vendorId = init.vendorId;
-		g_caps.deviceId = init.deviceId;
+		g_caps.deviceId = init.deviceId; // 创建完 RenderContextMtl之后 这些会重新修改
 
 		BX_TRACE("Init...");
 
@@ -3531,8 +3594,8 @@ namespace bgfx
 
 		errorState = ErrorState::ContextAllocated;
 
-		s_ctx = BX_ALIGNED_NEW(g_allocator, Context, Context::kAlignment);
-		if (s_ctx->init(init) )
+		s_ctx = BX_ALIGNED_NEW(g_allocator, Context, Context::kAlignment); // Context是在API 线程上创建  RenerContext是在渲染线程创建 通过命令 CommandBuffer::RendererInit
+		if (s_ctx->init(init) ) // Context::init
 		{
 			BX_TRACE("Init complete.");
 			return true;
@@ -3669,11 +3732,14 @@ namespace bgfx
 
 	void Encoder::setUniform(UniformHandle _handle, const void* _value, uint16_t _num)
 	{
+        // bgfx::rendererUpdateUniforms 时候会执行
+        
 		BGFX_CHECK_HANDLE("setUniform", s_ctx->m_uniformHandle, _handle);
-		const UniformRef& uniform = s_ctx->m_uniformRef[_handle.idx];
+		const UniformRef& uniform = s_ctx->m_uniformRef[_handle.idx];  // UniformRef 保存在 bgfx::Context  bgfx::createUniform是在bgfx::Context中创建uniform保存
 		BX_ASSERT(isValid(_handle) && 0 < uniform.m_refCount, "Setting invalid uniform (handle %3d)!", _handle.idx);
 		BX_ASSERT(_num == UINT16_MAX || uniform.m_num >= _num, "Truncated uniform update. %d (max: %d)", _num, uniform.m_num);
-		BGFX_ENCODER(setUniform(uniform.m_type, _handle, _value, UINT16_MAX != _num ? _num : uniform.m_num) );
+		BGFX_ENCODER(setUniform(uniform.m_type, _handle, _value, UINT16_MAX != _num ? _num : uniform.m_num) ); // 如果给定num 就更新开头的num个数据 没有的话就全部更新
+        // uniform的类型不能修改  从Context::m_uniformRef 获取到 UniformRef 从而知道 数据类型 和 数目
 	}
 
 	void Encoder::setIndexBuffer(IndexBufferHandle _handle)
@@ -4048,7 +4114,7 @@ namespace bgfx
 	{
 		BX_ASSERT(NULL != _mem, "_mem can't be NULL");
 		Memory* mem = const_cast<Memory*>(_mem);
-		if (isMemoryRef(mem) )
+		if (isMemoryRef(mem) ) // 如果是引用 Memory，调用释放函数 或者 什么都不做  const Memory* makeRef
 		{
 			MemoryRef* memRef = reinterpret_cast<MemoryRef*>(mem);
 			if (NULL != memRef->releaseFn)
@@ -4894,7 +4960,7 @@ namespace bgfx
 	FrameBufferHandle createFrameBuffer(uint16_t _width, uint16_t _height, TextureFormat::Enum _format, uint64_t _textureFlags)
 	{
 		_textureFlags |= _textureFlags&BGFX_TEXTURE_RT_MSAA_MASK ? 0 : BGFX_TEXTURE_RT;
-		TextureHandle th = createTexture2D(_width, _height, false, 1, _format, _textureFlags);
+		TextureHandle th = createTexture2D(_width, _height, false, 1, _format, _textureFlags); // 内部创建纹理 并返回句柄 来创建frameBuffer(attament)
 		return createFrameBuffer(1, &th, true);
 	}
 
@@ -4917,6 +4983,7 @@ namespace bgfx
 		return createFrameBuffer(_num, attachment, _destroyTextures);
 	}
 
+    // 这个是外部创建好纹理 深度颜色等等纹理 并把每个句柄放到各自的Attachment 并作为数组传入
 	FrameBufferHandle createFrameBuffer(uint8_t _num, const Attachment* _attachment, bool _destroyTextures)
 	{
 		BX_ASSERT(_num != 0, "Number of frame buffer attachments can't be 0.");
@@ -5121,7 +5188,7 @@ namespace bgfx
 
 	void setState(uint64_t _state, uint32_t _rgba)
 	{
-		BGFX_CHECK_ENCODER0();
+		BGFX_CHECK_ENCODER0(); // 先要检查 ecoder0
 		s_ctx->m_encoder0->setState(_state, _rgba);
 	}
 
@@ -5390,7 +5457,7 @@ namespace bgfx
 
 	void requestScreenShot(FrameBufferHandle _handle, const char* _filePath)
 	{
-		BGFX_CHECK_API_THREAD();
+		BGFX_CHECK_API_THREAD(); 
 		s_ctx->requestScreenShot(_handle, _filePath);
 	}
 

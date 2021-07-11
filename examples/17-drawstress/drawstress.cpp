@@ -32,15 +32,15 @@ struct PosColorVertex
 {
 	float m_x;
 	float m_y;
-	float m_z;
-	uint32_t m_abgr;
+	float m_z;        // 3 * bgfx::AttribType::Float
+	uint32_t m_abgr;  // 4 * bgfx::AttribType::Uint8  -- 需要归一化
 
 	static void init()
 	{
 		ms_layout
 			.begin()
 			.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-			.add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
+			.add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true) // 属性语义  元素数目  元素类型  归一化
 			.end();
 	}
 
@@ -51,7 +51,7 @@ bgfx::VertexLayout PosColorVertex::ms_layout;
 
 static PosColorVertex s_cubeVertices[8] =
 {
-	{-1.0f,  1.0f,  1.0f, 0xff000000 },
+	{-1.0f,  1.0f,  1.0f, 0xff000000 },  // 这里就是 顶点数据
 	{ 1.0f,  1.0f,  1.0f, 0xff0000ff },
 	{-1.0f, -1.0f,  1.0f, 0xff00ff00 },
 	{ 1.0f, -1.0f,  1.0f, 0xff00ffff },
@@ -61,7 +61,7 @@ static PosColorVertex s_cubeVertices[8] =
 	{ 1.0f, -1.0f, -1.0f, 0xffffffff },
 };
 
-static const uint16_t s_cubeIndices[36] =
+static const uint16_t s_cubeIndices[36] =  // 立方体 3*2 * 6 = 36 个索引
 {
 	0, 1, 2, // 0
 	1, 3, 2,
@@ -132,50 +132,62 @@ public:
 		init.resolution.width  = m_width;
 		init.resolution.height = m_height;
 		init.resolution.reset  = m_reset;
-		bgfx::init(init);
+		bgfx::init(init); // init.limits.maxEncoders = 8
 
 		const bgfx::Caps* caps = bgfx::getCaps();
 		m_maxDim = (int32_t)bx::pow(float(caps->limits.maxDrawCalls), 1.0f/3.0f);
 
+        
+        //
+        // ------------------这里是API线程(bgfx::init bgfx::frame)-------------------------------------------------------------
+        //
+        
+        
 		// Enable debug text.
 		bgfx::setDebug(m_debug);
 
 		// Set view 0 clear state.
-		bgfx::setViewClear(0
+		bgfx::setViewClear(0  // view id = 0
 			, BGFX_CLEAR_COLOR|BGFX_CLEAR_DEPTH
 			, 0x303030ff
 			, 1.0f
 			, 0
 			);
 
-		// Create vertex stream declaration.
+		// Create vertex stream declaration.  这里会创建布局 bgfx::VertexLayout 增加了 属性语义
 		PosColorVertex::init();
 
 		bgfx::RendererType::Enum type = bgfx::getRendererType();
 
-		// Create program from shaders.
+		// Create program from shaders.   这里创建program
 		m_program = bgfx::createProgram(
 			  bgfx::createEmbeddedShader(s_embeddedShaders, type, "vs_drawstress")
 			, bgfx::createEmbeddedShader(s_embeddedShaders, type, "fs_drawstress")
 			, true /* destroy shaders when program is destroyed */
 			);
 
-		// Create static vertex buffer.
+		// Create static vertex buffer.  创建静态顶点buffer  根据buffer和layout文件
 		m_vbh = bgfx::createVertexBuffer(
 			  bgfx::makeRef(s_cubeVertices, sizeof(s_cubeVertices) )
 			, PosColorVertex::ms_layout
 			);
 
-		// Create static index buffer.
+		// Create static index buffer.   创建静态索引buffer  并且返回句柄 IndexBufferHandle  这里只会压入命令 并不会真正创建资源
 		m_ibh = bgfx::createIndexBuffer(bgfx::makeRef(s_cubeIndices, sizeof(s_cubeIndices) ) );
 
+        
+        //
+        // ------------------------------------------------------------------------------------------
+        //
+        
+        
 		// Imgui.
 		imguiCreate();
 
 		m_maxThreads = bx::min<int32_t>(caps->limits.maxEncoders, BX_COUNTOF(m_thread) );
-		m_numThreads = (m_maxThreads+1)/2;
+        m_numThreads = (m_maxThreads+1)/2;
 
-		for (int32_t ii = 0; ii < m_maxThreads; ++ii)
+        for (int32_t ii = 0; ii < m_maxThreads; ++ii)
 		{
 			m_thread[ii].init(threadFunc, this);
 		}
@@ -210,31 +222,31 @@ public:
 				void* ptr;
 				uintptr_t id;
 
-			} cast;
+			} cast; // 这个是union, id存放的是线程数目  如果是UINTPTR_MAX,就是退出线程
 
-			cast.ptr = _thread->pop();
+			cast.ptr = _thread->pop();// 这里会等待指令   thread::queue.pop 会有信号量wait的
 			if (UINTPTR_MAX == cast.id)
 			{
 				break;
 			}
 
 			const uint32_t numThreads = uint32_t(cast.id);
-			const uint32_t idx = uint32_t(_thread - m_thread);
-			const uint32_t num = uint32_t(m_dim)/numThreads;
+			const uint32_t idx = uint32_t(_thread - m_thread);// 数组的索引 bx::Thread m_thread[5];
+			const uint32_t num = uint32_t(m_dim)/numThreads; // m_dim是总的格子数目
 			const uint32_t rem = idx == numThreads-1 ? uint32_t(m_dim)%numThreads : 0;
 			const uint32_t xx  = idx*num;
-			submit(idx+1, xx, num + rem);
+			submit(idx+1, xx, num + rem); // idx+1 线程号
 		}
 
 		return bx::kExitSuccess;
 	}
 
-	void submit(uint32_t _tid, uint32_t _xstart, uint32_t _num)
+	void submit(uint32_t _tid, uint32_t _xstart, uint32_t _num) // 工作线程
 	{
-		bgfx::Encoder* encoder = bgfx::begin();
+		bgfx::Encoder* encoder = bgfx::begin(); // EncoderImpl 并且关联 Context::m_submit
 		if (0 != _tid)
-		{
-			m_sync.post();
+		{   // submit和update不在同一个线程  不用m_sync也是可以的~
+			m_sync.post(); // 已经取出了encoder/m_submit
 		}
 
 		if (NULL != encoder)
@@ -276,15 +288,15 @@ public:
 						mtx[14] = pos[2] + float(zz)*step;
 
 						encoder->setTransform(mtx);
-						encoder->setVertexBuffer(0, m_vbh);
+						encoder->setVertexBuffer(0, m_vbh); // vertextbuffe handle
 						encoder->setIndexBuffer(m_ibh);
 						encoder->setState(BGFX_STATE_DEFAULT);
-						encoder->submit(0, m_program);
+						encoder->submit(0, m_program); // 这里进行编码
 					}
 				}
 			}
 
-			bgfx::end(encoder);
+			bgfx::end(encoder); // 结束编码 并且对应的 uniformbuffer 插入 end 
 		}
 	}
 
@@ -357,7 +369,7 @@ public:
 
 			ImGui::Checkbox("Auto adjust", &m_autoAdjust);
 
-			ImGui::SliderInt("Num threads", &m_numThreads, 1, m_maxThreads);
+			ImGui::SliderInt("Num threads", &m_numThreads, 1, m_maxThreads); // imgui 界面上可以控制线程的数目 默认开了5个线程 这里控制初始只有3个线程
 			const uint32_t numThreads = m_numThreads;
 
 			ImGui::SliderInt("Dim", &m_dim, 5, m_maxDim);
@@ -400,12 +412,12 @@ public:
 				for (uint32_t ii = 0; ii < numThreads; ++ii)
 				{
 					m_thread[ii].push(reinterpret_cast<void*>(uintptr_t(numThreads) ) );
-				}
+				} // int32_t thread(bx::Thread* _thread)  这里push 推动了 submit线程的 pop
 
 				for (uint32_t ii = 0; ii < numThreads; ++ii)
 				{
-					m_sync.wait();
-				}
+					m_sync.wait(); // 这里要消耗3个 m_sync  等工作线程都获取了encoder 等他们收到命令 ???
+				} //  即使这里不等待  bgfx::frame也会等待所有encoder ending信号
 			}
 			else
 			{
@@ -414,6 +426,7 @@ public:
 
 			// Advance to next frame. Rendering thread will be kicked to
 			// process submitted rendering primitives.
+            // 渲染线程将被踢去处理提交的渲染图元
 			bgfx::frame();
 
 			return true;
@@ -443,7 +456,7 @@ public:
 	int64_t  m_deltaTimeAvgNs;
 	int64_t  m_numFrames;
 
-	bx::Thread m_thread[5];
+	bx::Thread m_thread[5]; // 创建 class ExamleDrawStress 时候 就已经创建这些bx::Thread
 	bx::Semaphore m_sync;
 
 	bgfx::ProgramHandle m_program;
@@ -465,3 +478,33 @@ ENTRY_IMPLEMENT_MAIN(
 	, "Draw stress, maximizing number of draw calls."
 	, "https://bkaradzic.github.io/bgfx/examples.html#drawstress"
 	);
+
+/*
+ 这里定义了 _main_ 函数˜
+ 
+ int _main_(int _argc, char** _argv)
+ {
+    ExampleDrawStress app(__VA_ARGS__);
+    return entry::runApp(&app, _argc, _argv);
+ }
+ 
+ 
+ macOS app 的入口在 entry_osx.mm
+ 
+ int main(int _argc, const char* const* _argv)
+ {
+    s_ctx.run(_argc, _argv);
+    // s_ctx 是个全局对象  static Context s_ctx;   Context @ entry_osx.mm  run ->> thread.init(mte.threadFunc, &mte); 启动线程执行 MainThreadEntry::threadFunc
+    // Context::run(int _argc, const char* const* _argv)  
+ }
+
+ 
+ struct MainThreadEntry entry_osx.mm  -->  static int32_t threadFunc --> entry.cpp entery::main -->  result = ::_main_(_argc, (char**)_argv);
+ 
+ 
+
+ 
+ 
+ 
+ 
+ */

@@ -92,16 +92,19 @@ namespace bgfx
 			}
 		}
 
+        // 为什么这个在ViewState中的 ???  预制的uniform都是跟View相关的 ???
 		template<uint16_t mtxRegs, typename RendererContext, typename Program, typename Draw>
 		void setPredefined(RendererContext* _renderer, uint16_t _view, const Program& _program, const Frame* _frame, const Draw& _draw)
 		{
+            // mtxRegs gl = 1  VK = 4 Mtl = 4
+        
 			const FrameCache& frameCache = _frame->m_frameCache;
 
 			for (uint32_t ii = 0, num = _program.m_numPredefined; ii < num; ++ii)
 			{
-				const PredefinedUniform& predefined = _program.m_predefined[ii];
+				const PredefinedUniform& predefined = _program.m_predefined[ii]; // 只有程序使用到的预制的unform 这里才会设置
 				uint8_t flags = predefined.m_type&kUniformFragmentBit;
-				switch (predefined.m_type&(~kUniformFragmentBit) )
+				switch (predefined.m_type&(~kUniformFragmentBit) ) // 去掉 m_type 中的  fragment 标记
 				{
 				case PredefinedUniform::ViewRect:
 					{
@@ -112,7 +115,7 @@ namespace bgfx
 						frect[3] = m_rect.m_height;
 
 						_renderer->setShaderUniform4f(flags
-							, predefined.m_loc
+							, predefined.m_loc // 在形参中的位置  也是在 renderer_mtl.mm processArguments 中获取的
 							, &frect[0]
 							, 1
 							);
@@ -184,7 +187,7 @@ namespace bgfx
 						_renderer->setShaderUniform4x4f(flags
 							, predefined.m_loc
 							, m_invProj.un.val
-							, bx::uint32_min(mtxRegs, predefined.m_count)
+							, bx::uint32_min(mtxRegs, predefined.m_count) // metal 很大程度都是mtxRegs=4 因为processArguments@renderer_mtl 对于float4x4 num*=4了
 							);
 					}
 					break;
@@ -244,7 +247,7 @@ namespace bgfx
 					}
 					break;
 
-				case PredefinedUniform::ModelViewProj:
+				case PredefinedUniform::ModelViewProj: // 预制uniform的设置  MVP
 					{
 						Matrix4 modelViewProj;
 						const Matrix4& model = frameCache.m_matrixCache.m_cache[_draw.m_startMatrix];
@@ -252,8 +255,8 @@ namespace bgfx
 							, &model.un.f4x4
 							, &m_viewProj[_view].un.f4x4
 							);
-						_renderer->setShaderUniform4x4f(flags
-							, predefined.m_loc
+						_renderer->setShaderUniform4x4f(flags // 设置到 RenderContext::m_UniformBuffer.m_obj.content中 m_UniformBuffer.m_obj是MTLBuffer
+							, predefined.m_loc // processArguments 从shader中获取的结构体中的偏移
 							, modelViewProj.un.val
 							, bx::uint32_min(mtxRegs, predefined.m_count)
 							);
@@ -265,7 +268,7 @@ namespace bgfx
 						_renderer->setShaderUniform4f(flags
 							, predefined.m_loc
 							, &m_alphaRef
-							, 1
+							, 1 // 也是占用 16个字节 1个 float4寄存器 ??
 							);
 					}
 					break;

@@ -508,10 +508,11 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		return s_numApps;
 	}
 
+    // entry_osx.mm 会开一个线程来跑 demo   在新创建线上调用 _app->init  _app->update()   _app->shutdown
 	int runApp(AppI* _app, int _argc, const char* const* _argv)
 	{
-		_app->init(_argc, _argv, s_width, s_height);
-		bgfx::frame();
+		_app->init(_argc, _argv, s_width, s_height); // bgfx::init 
+		bgfx::frame(); // 这个 ?? 作用是 ??? 
 
 		WindowHandle defaultWindow = { 0 };
 		setWindowSize(defaultWindow, s_width, s_height);

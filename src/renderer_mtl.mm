@@ -321,19 +321,19 @@ namespace bgfx { namespace mtl
 		16,
 	};
 
-	static UniformType::Enum convertMtlType(MTLDataType _type)
+	static UniformType::Enum convertMtlType(MTLDataType _type) // 只有自定义的 非预制的uniform变量才会走这里
 	{
-		switch (_type)
+		switch (_type) // Metal的类型  转换成 有限制对齐的 UnfiromType
 		{
 		case MTLDataTypeUInt:
-		case MTLDataTypeInt:
+		case MTLDataTypeInt: 
 			return UniformType::Sampler;
 
 		case MTLDataTypeFloat:
 		case MTLDataTypeFloat2:
 		case MTLDataTypeFloat3:
 		case MTLDataTypeFloat4:
-			return UniformType::Vec4;
+			return UniformType::Vec4; // 如果是float  float2 float3 float4 都用Vec4来传入
 
 		case MTLDataTypeFloat3x3:
 			return UniformType::Mat3;
@@ -376,6 +376,8 @@ namespace bgfx { namespace mtl
 		{
 			BX_UNUSED(_init);
 			BX_TRACE("Init.");
+            
+            BX_TRACE("current is runing metal ");
 
 			m_fbh.idx = kInvalidHandle;
 			bx::memSet(m_uniforms, 0, sizeof(m_uniforms) );
@@ -412,7 +414,7 @@ namespace bgfx { namespace mtl
 				return false;
 			}
 
-			m_cmd.init(m_device);
+			m_cmd.init(m_device); // m_cmd 是 Command Queue
 			BGFX_FATAL(NULL != m_cmd.m_commandQueue, Fatal::UnableToInitialize, "Unable to create Metal device.");
 
 			m_renderPipelineDescriptor   = newRenderPipelineDescriptor();
@@ -433,7 +435,7 @@ namespace bgfx { namespace mtl
 
 			const char* vshSource =
 				"using namespace metal;\n"
-				"struct xlatMtlShaderOutput { float4 gl_Position [[position]]; float2 v_texcoord0; }; \n"
+				"struct xlatMtlShaderOutput{ float4 gl_Position [[position]]; float2 v_texcoord0; }; \n"
 				"vertex xlatMtlShaderOutput xlatMtlMain (uint v_id [[ vertex_id ]]) \n"
 				"{\n"
 				"   xlatMtlShaderOutput _mtl_o;\n"
@@ -454,10 +456,11 @@ namespace bgfx { namespace mtl
 				;
 
 			Library lib = m_device.newLibraryWithSource(vshSource);
+            // ???? 为什么需要创建两个library分别创建MTLFunction--- 不是从bundle目录查找metal文件 library就要传入shader字符串
 			if (NULL != lib)
 			{
 				m_screenshotBlitProgramVsh.m_function = lib.newFunctionWithName(SHADER_FUNCTION_NAME);
-				release(lib);
+				release(lib); // ???? 然后这里释放 MTLLibrary  这里library包含了刚刚传入的 shader字符串 而不是一个函数
 			}
 
 			lib = m_device.newLibraryWithSource(fshSource);
@@ -916,9 +919,12 @@ namespace bgfx { namespace mtl
 
 		void createFrameBuffer(FrameBufferHandle _handle, uint8_t _num, const Attachment* _attachment) override
 		{
-			m_frameBuffers[_handle.idx].create(_num, _attachment);
+            // 在 给定句柄 FrameBufferHandle 的位置上 给句给定的Attachement 描述 创建 FrameBufferMtl
+            //
+			m_frameBuffers[_handle.idx].create(_num, _attachment); // m_frameBuffers 是个数组  RenderContextMtl创建时候已经创建好了，但是无效
 		}
 
+        // 这个创建跟 窗口相关的 FramebufferMtl, 除了跟窗口 _nwh UIView相关的CAMetalLayer引用 深度模板纹理都是内部自己创建的(Swapchian)
 		void createFrameBuffer(FrameBufferHandle _handle, void* _nwh, uint32_t _width, uint32_t _height, TextureFormat::Enum _format, TextureFormat::Enum _depthFormat) override
 		{
 			for (uint32_t ii = 0, num = m_numWindows; ii < num; ++ii)
@@ -927,32 +933,37 @@ namespace bgfx { namespace mtl
 				if (isValid(handle)
 				&&  m_frameBuffers[handle.idx].m_nwh == _nwh)
 				{
+                    // 遍历所有的m_windows FrameBufferHandle句柄有效  而且对应在 m_frameBuffers上的 FrameBufferMtl 的窗口指针是 _nwh 就会销毁原来的FrameBufferMtl
 					destroyFrameBuffer(handle);
 				}
 			}
 
 			uint16_t denseIdx   = m_numWindows++;
-			m_windows[denseIdx] = _handle;
+			m_windows[denseIdx] = _handle;  // 记录下这个窗口 对应的 FrameBuferHandle  这个handle可以在 m_frameBuffers 找到 FrameBufferMtl
 
 			FrameBufferMtl& fb = m_frameBuffers[_handle.idx];
-			fb.create(denseIdx, _nwh, _width, _height, _format, _depthFormat);
+			fb.create(denseIdx, _nwh, _width, _height, _format, _depthFormat); // 里面会调用 fb.m_swapChain->init 只是获取CAMetalayer
+            
+            // swapChain  resize传入他所属于的fb，为了计算这个fb的 m_pixelFormatHash
+            //  根据 _flags (m_resolution.reset) 和 宽高 设置 CAMetalLayer的格式(srgb/rgb)和大小
+            //  根据 sampleCount 创建深度模板纹理 是2D还是22DMultisample 和 是否创建MSAA纹理
 			fb.m_swapChain->resize(m_frameBuffers[_handle.idx], _width, _height, m_resolution.reset);
 		}
 
 		void destroyFrameBuffer(FrameBufferHandle _handle) override
 		{
-			uint16_t denseIdx = m_frameBuffers[_handle.idx].destroy();
+			uint16_t denseIdx = m_frameBuffers[_handle.idx].destroy(); // 返回的是原来在 m_windows 数组中的位置
 
-			if (UINT16_MAX != denseIdx)
+			if (UINT16_MAX != denseIdx) // FrameBufferMTL/FrameBufferHandle 不对应 m_windows ？？
 			{
 				--m_numWindows;
 
 				if (m_numWindows > 1)
 				{
 					FrameBufferHandle handle = m_windows[m_numWindows];
-					m_windows[m_numWindows]  = {kInvalidHandle};
+					m_windows[m_numWindows]  = {kInvalidHandle}; // m_windows 最后一个清除
 
-					if (m_numWindows != denseIdx)
+					if (m_numWindows != denseIdx) // 如果删除的FramebufferHandle对应的windows 不是最后一个 这里把原来windows最后一个的数据搬到 删除windows原来位置
 					{
 						m_windows[denseIdx] = handle;
 						m_frameBuffers[handle.idx].m_denseIdx = denseIdx;
@@ -960,7 +971,10 @@ namespace bgfx { namespace mtl
 				}
 			}
 		}
-
+        
+        // 外部不能设置float类型uniform变量  只能是mat3x3 mat4x4 vec4 Sampler这4种类型  内部预制的可以有float4
+        // 见 setPredefined                              @ renderer.h
+        //    setShaderUniform4x4f  setShaderUniform4f   @ renderer_mtl.m
 		void createUniform(UniformHandle _handle, UniformType::Enum _type, uint16_t _num, const char* _name) override
 		{
 			if (NULL != m_uniforms[_handle.idx])
@@ -968,11 +982,11 @@ namespace bgfx { namespace mtl
 				BX_FREE(g_allocator, m_uniforms[_handle.idx]);
 			}
 
-			const uint32_t size = bx::alignUp(g_uniformTypeSize[_type]*_num, 16);
+			const uint32_t size = bx::alignUp(g_uniformTypeSize[_type]*_num, 16); // 数据 对齐16个字节
 			void* data = BX_ALLOC(g_allocator, size);
 			bx::memSet(data, 0, size);
-			m_uniforms[_handle.idx] = data;
-			m_uniformReg.add(_handle, _name);
+			m_uniforms[_handle.idx] = data;     // 把 句柄对应的 buffer 保存起来
+			m_uniformReg.add(_handle, _name);   // 句柄  名字  类型  // 类型和名字 作为hashkey
 		}
 
 		void destroyUniform(UniformHandle _handle) override
@@ -1036,7 +1050,7 @@ namespace bgfx { namespace mtl
 
 		void updateUniform(uint16_t _loc, const void* _data, uint32_t _size) override
 		{
-			bx::memCopy(m_uniforms[_loc], _data, _size);
+			bx::memCopy(m_uniforms[_loc], _data, _size); // m_uniforms loc?? 
 		}
 
 		void invalidateOcclusionQuery(OcclusionQueryHandle _handle) override
@@ -1214,6 +1228,7 @@ namespace bgfx { namespace mtl
 				return;
 			}
 
+            // 如果是0 就直接用 m_mainFrameBuffer ，其他窗口？用 FrameBufferHandle m_windows[ii] 句柄 指定的 FrameBufferMtl ??
 			for (uint32_t ii = 0, num = m_numWindows; ii < num; ++ii)
 			{
 				FrameBufferMtl& frameBuffer = ii == 0 ? m_mainFrameBuffer : m_frameBuffers[m_windows[ii].idx];
@@ -1221,10 +1236,11 @@ namespace bgfx { namespace mtl
 				&&  frameBuffer.m_swapChain->m_drawableTexture)
 				{
 					MTL_RELEASE(frameBuffer.m_swapChain->m_drawableTexture);
+                    // FrameBufferMtl都对应m_swapChain   SwapChainMtl包含了 CAMetaLayer(UIView add layer)和需要的深度模板纹理
 
 					if (NULL != frameBuffer.m_swapChain->m_drawable)
 					{
-						m_commandBuffer.presentDrawable(frameBuffer.m_swapChain->m_drawable);
+						m_commandBuffer.presentDrawable(frameBuffer.m_swapChain->m_drawable); // 渲染完成之后呈现这个drawable(layer.drawable.texture -> 颜色附件/MtlRenderPassDescriptor/MtlRenderCommandEncoder )
 						MTL_RELEASE(frameBuffer.m_swapChain->m_drawable);
 					}
 				}
@@ -1251,16 +1267,16 @@ namespace bgfx { namespace mtl
 			||  m_resolution.height           !=  _resolution.height
 			|| (m_resolution.reset&maskFlags) != (_resolution.reset&maskFlags) )
 			{
-				MTLPixelFormat prevMetalLayerPixelFormat = m_mainFrameBuffer.m_swapChain->m_metalLayer.pixelFormat;
+				MTLPixelFormat prevMetalLayerPixelFormat = m_mainFrameBuffer.m_swapChain->m_metalLayer.pixelFormat; // mainFrameBuffer swapChain引用了metallayer
 
 				m_resolution = _resolution;
 
 				if (m_resolution.reset & BGFX_RESET_INTERNAL_FORCE
-				&& m_mainFrameBuffer.m_swapChain->m_nwh != g_platformData.nwh)
+				&& m_mainFrameBuffer.m_swapChain->m_nwh != g_platformData.nwh) // 窗口句柄
 				{
-					m_mainFrameBuffer.m_swapChain->init(g_platformData.nwh);
+					m_mainFrameBuffer.m_swapChain->init(g_platformData.nwh); // 如果窗口修改了 需要用 g_platformData.nwh 更新到 m_swapChain->m_nwh
 				}
-				m_resolution.reset &= ~BGFX_RESET_INTERNAL_FORCE;
+				m_resolution.reset &= ~BGFX_RESET_INTERNAL_FORCE; // m_swapChain 保存了平台窗口句斌 ??m_nwh  m_metalLayer
 
 				m_mainFrameBuffer.m_swapChain->resize(m_mainFrameBuffer, _resolution.width, _resolution.height, _resolution.reset);
 
@@ -1399,16 +1415,32 @@ namespace bgfx { namespace mtl
 			}
 		}
 
-
-		void setShaderUniform(uint8_t _flags, uint32_t _loc, const void* _val, uint32_t _numRegs)
+        // 对于在 4 字节边界而不是 16 字节边界上打包着色器常量的平台。
+		void setShaderUniform(uint8_t _flags, uint32_t _loc, const void* _val, uint32_t _numRegs) // _numRegs = 多少个16
 		{
 			uint32_t offset = 0 != (_flags&kUniformFragmentBit)
-				? m_uniformBufferFragmentOffset
-				: m_uniformBufferVertexOffset
+				? m_uniformBufferFragmentOffset // 64 ?? 256 ??
+				: m_uniformBufferVertexOffset  // 0
 				;
-			uint8_t* dst = (uint8_t*)m_uniformBuffer.contents();
-			bx::memCopy(&dst[offset + _loc], _val, _numRegs*16);
-		}
+			uint8_t* dst = (uint8_t*)m_uniformBuffer.contents(); // 这个是 MTLBuffer.contents
+            
+            // MTLBuffer 包含两部分
+            // 开头 m_uniformBufferVertexOffset   是给顶点着色器的uniform数据 ??
+            //     m_uniformBufferFragmentOffset 是给片元着色器的uniform数据
+            
+			bx::memCopy(&dst[offset + _loc], _val, _numRegs*16); // _loc 是 processArgumenst中解析到在形参struct中的偏移   多个uniform变量怎么处理??
+            // 往RenderContext的 m_uniformBuffer 塞入unform数据  ??? 所有shader共享 ??  vertex和frag的uniform都同个buffer ??
+            
+            // 16 packing
+            
+		}  //  _numRegs*16 一定是16个字节对齐  4*4 4个元素*4字节(float)
+      
+       
+        
+        // renderer_ps4.cpp 中  // 4 字节打包，而不是 16
+        // memcpy(&m_fsScratch[_regIndex], _val, _numRegs*4);
+        // 讨论: https://github.com/bkaradzic/bgfx/pull/406
+        // 从 bgfx 中删除对 <16 字节的uniform的支持（例如，将所有内容强制为 vec4）
 
 		void setShaderUniform4f(uint8_t _flags, uint32_t _loc, const void* _val, uint32_t _numRegs)
 		{
@@ -1426,29 +1458,30 @@ namespace bgfx { namespace mtl
 
 			for (;;)
 			{
-				uint32_t opcode = _uniformBuffer.read();
+				uint32_t opcode = _uniformBuffer.read(); // bgfx_p.h UniformBuffer::finish()
 
-				if (UniformType::End == opcode)
+				if (UniformType::End == opcode) // 已经结束
 				{
 					break;
 				}
 
 				UniformType::Enum type;
-				uint16_t loc;
+				uint16_t loc; // m_uniformBuffer MTLBuffer中的偏移   m_uniformBuffer MTLUbber 包含了vert和frag的unform数据
 				uint16_t num;
 				uint16_t copy;
-				UniformBuffer::decodeOpcode(opcode, type, loc, num, copy);
+				UniformBuffer::decodeOpcode(opcode, type, loc, num, copy); // uniform 结构体中每个元素的偏移 ??   同一写入到 RenderContextMtl::m_uniformBuffer
 
 				const char* data;
 				if (copy)
 				{
-					data = _uniformBuffer.read(g_uniformTypeSize[type]*num);
+					data = _uniformBuffer.read(g_uniformTypeSize[type]*num); // 数据直接在命令中 在uniformBuffer中 由外部调用 bgfx::setUniform设置
 				}
-				else
+				else // UniformBuffer::writeUniformHandle 默认是false  根据UniformHandle从 m_uniforms 获取数据
 				{
 					UniformHandle handle;
 					bx::memCopy(&handle, _uniformBuffer.read(sizeof(UniformHandle) ), sizeof(UniformHandle) );
-					data = (const char*)m_uniforms[handle.idx];
+                    // processArguments编制命令 根据名字+类型从m_uniformReg找到的句柄
+					data = (const char*)m_uniforms[handle.idx]; // CreateUniform命令执行时候 创建的cpu buffer
 				}
 
 #define CASE_IMPLEMENT_UNIFORM(_uniform, _dxsuffix, _type) \
@@ -1459,13 +1492,14 @@ namespace bgfx { namespace mtl
 	}                                                      \
 	break;
 
+                // 往 m_uniformBuffer 对应 loc就是偏移uniform.offset 开始塞入数据
 				switch ( (uint32_t)type)
 				{
 				case UniformType::Mat3:
-				case UniformType::Mat3|kUniformFragmentBit:
+				case UniformType::Mat3|kUniformFragmentBit: // 根据数据类型，从buffer重建数据
 					{
-						float* value = (float*)data;
-						for (uint32_t ii = 0, count = num/3; ii < count; ++ii,  loc += 3*16, value += 9)
+						float* value = (float*)data; // 只处理 Mat3 的数组  ??       float3x3   num=3 ;
+						for (uint32_t ii = 0, count = num/3; ii < count; ++ii,  loc += 3*16, value += 9) // 在之前loc的基础上加上偏移
 						{
 							Matrix4 mtx;
 							mtx.un.val[ 0] = value[0];
@@ -1476,7 +1510,7 @@ namespace bgfx { namespace mtl
 							mtx.un.val[ 5] = value[4];
 							mtx.un.val[ 6] = value[5];
 							mtx.un.val[ 7] = 0.0f;
-							mtx.un.val[ 8] = value[6];
+							mtx.un.val[ 8] = value[6]; // 外面传入的是 3*3 这里要转成4*4
 							mtx.un.val[ 9] = value[7];
 							mtx.un.val[10] = value[8];
 							mtx.un.val[11] = 0.0f;
@@ -1486,7 +1520,7 @@ namespace bgfx { namespace mtl
 					break;
 
 					CASE_IMPLEMENT_UNIFORM(Sampler, I, int);
-					CASE_IMPLEMENT_UNIFORM(Vec4,    F, float);
+					CASE_IMPLEMENT_UNIFORM(Vec4,    F, float); // 没有处理这些类型的 数组 传递 ??
 					CASE_IMPLEMENT_UNIFORM(Mat4,    F, float);
 
 				case UniformType::End:
@@ -1804,7 +1838,19 @@ namespace bgfx { namespace mtl
 			m_renderCommandEncoder.setStencilReferenceValue(ref);
 		}
 
-		void processArguments(
+        // getPipelineState getComputePipelineState 获取一个renderpass?? 设置给encoder来draw  都会调用这个  处理uniform形参
+        //
+        // UniformBuffer好像只是用来编码命令 RendererContextMtl::commit(UniformBuffer) 才会执行这个UniformBuffer中的指令
+        //
+        // 预定义的uniform的类型 偏移等信息 放在 这里,  不需要有UniformHandle,  直接在ViewState的 setPredefined 中设置这些预置uniform
+        // ps->m_predefined
+        // ps->m_numPredefined
+        //
+        // 非预定义的uniform变量 放到, 需要有事先 CreateUniform 拿到 UniformHandle 句柄
+        // ps->m_vshConstantBuffer 编码了 偏移 类型  还有句柄 等信息
+        // ps->m_fshConstantBuffer
+        
+		void processArguments( // 处理参数
 			  PipelineStateMtl* ps
 			, NSArray <MTLArgument *>* _vertexArgs
 			, NSArray <MTLArgument *>* _fragmentArgs
@@ -1812,40 +1858,48 @@ namespace bgfx { namespace mtl
 		{
 			ps->m_numPredefined = 0;
 
-			for (uint32_t shaderType = 0; shaderType < 2; ++shaderType)
+			for (uint32_t shaderType = 0; shaderType < 2; ++shaderType) //  shaderType = 0 是顶点   = 1 是片元
 			{
-				UniformBuffer*& constantBuffer = shaderType == 0
-					? ps->m_vshConstantBuffer
+				UniformBuffer*& constantBuffer = shaderType == 0 // 这里是引用了 ps->m_vshConstantBuffer 这个变量 修改这个变量就相当于修改了 ps
+					? ps->m_vshConstantBuffer  // ps是 PipelineStateMtl
 					: ps->m_fshConstantBuffer
 					;
 				const int8_t fragmentBit = (1 == shaderType ? kUniformFragmentBit : 0);
 
+                // 这里不处理  arg.bufferPointerType != null 指针类型
+                
+                // MTLArgument 这个是shader的每个参数的信息  名字 类型  从 newPipelineState 返回的的
 				for (MTLArgument* arg in (shaderType == 0 ? _vertexArgs : _fragmentArgs) )
 				{
 					BX_TRACE("arg: %s type:%d", utf8String(arg.name), arg.type);
 
-					if (arg.active)
+					if (arg.active) // 对于 texture , sampler ,  struct _mtl_u 参数名字 + buffer[[0]],  struct + buffer[[0]] 都会处理
 					{
-						if (arg.type == MTLArgumentTypeBuffer
-						&&  0 == bx::strCmp(utf8String(arg.name), SHADER_UNIFORM_NAME) )
+						if (arg.type == MTLArgumentTypeBuffer // 参数类型是buffer  纹理  sampler  threadGroup
+						&&  0 == bx::strCmp(utf8String(arg.name), SHADER_UNIFORM_NAME) ) // 名字是 _mtl_u 才是 uniform参数
 						{
 							BX_ASSERT(arg.index == 0, "Uniform buffer must be in the buffer slot 0.");
 							BX_ASSERT(MTLDataTypeStruct == arg.bufferDataType, "%s's type must be a struct",SHADER_UNIFORM_NAME );
 
 							if (MTLDataTypeStruct == arg.bufferDataType)
 							{
-								if (shaderType == 0)
+                                // 如果是 [[buffer(0)]] 参数 并且类型是结构体  这样会包括这个结构体的大小和对齐 ??
+                                // 然后对应每个结构体成员 arg.bufferStructType.members 的数据类型 是否数组
+                                
+                                
+								if (shaderType == 0) // 0 是 vertex   只会设置一次给pipestate   也就是shader只有一个是uniform
 								{
 									ps->m_vshConstantBufferSize = uint32_t(arg.bufferDataSize);
 									ps->m_vshConstantBufferAlignment = uint32_t(arg.bufferAlignment);
 								}
-								else
+								else // 1 是 frag
 								{
 									ps->m_fshConstantBufferSize = uint32_t(arg.bufferDataSize);
 									ps->m_fshConstantBufferAlignment = uint32_t(arg.bufferAlignment);
 								}
 
-								for (MTLStructMember* uniform in arg.bufferStructType.members )
+                                
+								for (MTLStructMember* uniform in arg.bufferStructType.members ) // MTLStructMember 如果是结构体 这个是结构体的成员  
 								{
 									const char* name = utf8String(uniform.name);
 									BX_TRACE("uniform: %s type:%d", name, uniform.dataType);
@@ -1853,69 +1907,78 @@ namespace bgfx { namespace mtl
 									MTLDataType dataType = uniform.dataType;
 									uint32_t num = 1;
 
-									if (dataType == MTLDataTypeArray)
+									if (dataType == MTLDataTypeArray) // 数组类型
 									{
-										dataType = uniform.arrayType.elementType;
-										num = (uint32_t)uniform.arrayType.arrayLength;
+										dataType = uniform.arrayType.elementType; // 数组元素
+										num = (uint32_t)uniform.arrayType.arrayLength; // 数组长度
 									}
 
 									switch (dataType)
 									{
-										case MTLDataTypeFloat4:   num *= 1; break;
-										case MTLDataTypeFloat4x4: num *= 4; break;
-										case MTLDataTypeFloat3x3: num *= 3; break;
+										case MTLDataTypeFloat4:   num *= 1; break; //     ???   Float4 非数组 刚好一个 float4/16字节寄存器 ??
+										case MTLDataTypeFloat4x4: num *= 4; break; //     float4x4 u_modelViewProj;  1*4 ??
+										case MTLDataTypeFloat3x3: num *= 3; break; //     float3x3                ;  1*3 ?? // 多少个float4/16字节寄存器 ??
 
 										default:
-											BX_WARN(0, "Unsupported uniform MTLDataType: %d", uniform.dataType);
+											BX_WARN(0, "Unsupported uniform MTLDataType: %d", uniform.dataType); // ??? 但是 convertMtlType 可以是 MTLDataTypeFloat
 											break;
 									}
 
-									const PredefinedUniform::Enum predefined = nameToPredefinedUniformEnum(name);
+									const PredefinedUniform::Enum predefined = nameToPredefinedUniformEnum(name); // 预定义名字转换成预定义枚举类型
 
-									if (PredefinedUniform::Count != predefined)
+									if (PredefinedUniform::Count != predefined) // 预制的 unifirom
 									{
-										ps->m_predefined[ps->m_numPredefined].m_loc   = uint32_t(uniform.offset);
-										ps->m_predefined[ps->m_numPredefined].m_count = uint16_t(num);
+										ps->m_predefined[ps->m_numPredefined].m_loc   = uint32_t(uniform.offset);// 这个代表结构体重的偏移
+										ps->m_predefined[ps->m_numPredefined].m_count = uint16_t(num); // 比如 char _m22_pad[8]; 长度就是num 8
 										ps->m_predefined[ps->m_numPredefined].m_type  = uint8_t(predefined|fragmentBit);
-										++ps->m_numPredefined;
+										++ps->m_numPredefined; // pipeline state 预制uniform的数目
 									}
-									else
+									else // 如果不是预置  根据这个名字 找到 之前 CreateUniform(注册的)  info->m_handle.idx 用这个对应的 m_uniforms
 									{
+                                        
 										const UniformRegInfo* info = s_renderMtl->m_uniformReg.find(name);
+                                        // 如果没有注册 不会调用这个?? 需要CreateUniform ??
+                                        // CommandBuffer::CreateUniform  m_renderCtx->createUniform   需要之前 就通过 通过命令创建  就是这个是uniform struct中的某个成员
+                                        // ** 调用到这里renderframe线程
 										BX_WARN(NULL != info, "User defined uniform '%s' is not found, it won't be set.", name);
 
 										if (NULL != info)
 										{
-											if (NULL == constantBuffer)
+											if (NULL == constantBuffer) // ??? 如果不是预置的话，  pipestate 里面没有 m_vshConstantBuffer m_fshConstantBuffer ???
 											{
-												constantBuffer = UniformBuffer::create(1024);
+												constantBuffer = UniformBuffer::create(1024); // constanc buffer最大1024 ???
 											}
 
-											UniformType::Enum type = convertMtlType(dataType);
-											constantBuffer->writeUniformHandle( (UniformType::Enum)(type|fragmentBit), uint32_t(uniform.offset), info->m_handle, uint16_t(num) );
+											UniformType::Enum type = convertMtlType(dataType); // unfirombuffer  类型+_loc buffer中偏移  +++句柄 编码
+											constantBuffer->writeUniformHandle(
+                                                                               (UniformType::Enum)(type|fragmentBit), //  // 所以type不能超过0x10 16个
+                                                                               uint32_t(uniform.offset),
+                                                                               info->m_handle,
+                                                                               uint16_t(num) ); // 数组长度
 											BX_TRACE("store %s %d offset:%d", name, info->m_handle, uint32_t(uniform.offset) );
 										}
 									}
 								}
 							}
 						}
-						else if (arg.type == MTLArgumentTypeBuffer
+						else if (arg.type == MTLArgumentTypeBuffer // 如果是buffer 并且不是第0个参数 又不是结构体类型
 							 && arg.index > 0
-							 && NULL != arg.bufferStructType)
+							 && NULL != arg.bufferStructType)  // 类似 struct MyVertex array ; [[buffer(0)]] // 不处理 bufferPointerType
 						{
-							const char* name = utf8String(arg.name);
+							const char* name = utf8String(arg.name); // 名字用来打印??
 
-							if (arg.index >= BGFX_CONFIG_MAX_TEXTURE_SAMPLERS)
+							if (arg.index >= BGFX_CONFIG_MAX_TEXTURE_SAMPLERS) // 16  用户自定义的uniform 形参序号index不能太大 ??
 							{
 								BX_WARN(false, "Binding index is too large %d max is %d. User defined uniform '%s' won't be set.", int(arg.index - 1), BGFX_CONFIG_MAX_TEXTURE_SAMPLERS - 1, name);
 							}
 							else
 							{
+                                // 第几个参数 绑定到 vertex还是frag ??
 								ps->m_bindingTypes[arg.index-1] = fragmentBit ? PipelineStateMtl::BindToFragmentShader : PipelineStateMtl::BindToVertexShader;
 								BX_TRACE("buffer %s index:%d", name, uint32_t(arg.index-1) );
 							}
 						}
-						else if (arg.type == MTLArgumentTypeTexture)
+						else if (arg.type == MTLArgumentTypeTexture) // [[texture(0)]] 类型
 						{
 							const char* name = utf8String(arg.name);
 							const UniformRegInfo* info = s_renderMtl->m_uniformReg.find(name);
@@ -1934,21 +1997,21 @@ namespace bgfx { namespace mtl
 								}
 							}
 						}
-						else if (arg.type == MTLArgumentTypeSampler)
+						else if (arg.type == MTLArgumentTypeSampler) // [[smaple(0)]] 类型
 						{
 							BX_TRACE("sampler: %s index:%d", utf8String(arg.name), arg.index);
 						}
 					}
 				}
 
-				if (NULL != constantBuffer)
+				if (NULL != constantBuffer) // 这个 UniformBuffer 只是用来 编制命令,  对应 要给这个 pipelinestate 传入uniform变量的命令？？
 				{
-					constantBuffer->finish();
+					constantBuffer->finish(); // void RenderContextMtl::commit(UniformBuffer& _uniformBuffer) 会判断这个end 
 				}
 			}
 		}
 
-		PipelineStateMtl* getPipelineState(
+		PipelineStateMtl* getPipelineState( // 每个渲染 都应该从这里拿到 pipestate 设置给 MetalCommandEncoder
 			  uint64_t _state
 			, uint32_t _rgba
 			, FrameBufferHandle _fbh
@@ -1971,7 +2034,7 @@ namespace bgfx { namespace mtl
 			const bool independentBlendEnable = !!(BGFX_STATE_BLEND_INDEPENDENT & _state);
 			const ProgramMtl& program = m_program[_program.idx];
 
-			bx::HashMurmur2A murmur;
+			bx::HashMurmur2A murmur; // 计算给定参数 pipelineStateDesc的hash
 			murmur.begin();
 			murmur.add(_state);
 			murmur.add(independentBlendEnable ? _rgba : 0);
@@ -2000,23 +2063,27 @@ namespace bgfx { namespace mtl
 
 			uint32_t hash = murmur.end();
 
-			PipelineStateMtl* pso = m_pipelineStateCache.find(hash);
+			PipelineStateMtl* pso = m_pipelineStateCache.find(hash); // 这cache有一样的话，就会用之前的pipelineState
 
-			if (NULL == pso)
-			{
+			if (NULL == pso) // 其中会有 m_vshConstantBuffer m_fshConstantBuffer  UniformBuffer 包含设置MTLBuffer的指令  RenderContextMtl::commit(UniformBuffer)
+			{ // UniformBuffer 指令编码完成之后  可以重复使用
 				pso = BX_NEW(g_allocator, PipelineStateMtl);
 
-				RenderPipelineDescriptor pd = m_renderPipelineDescriptor;
-				reset(pd);
+				RenderPipelineDescriptor pd = m_renderPipelineDescriptor; // 为啥要拷贝原来的 pipeline descriptor ? 然后又reset ？ reset部分
+				reset(pd); //  typedef MTLRenderPipelineDescriptor* RenderPipelineDescriptor;  m_renderPipelineDescriptor 重置的是同一个
 
 				pd.alphaToCoverageEnabled = !!(BGFX_STATE_BLEND_ALPHA_TO_COVERAGE & _state);
 
 				uint32_t frameBufferAttachment = 1;
+                
+                // FrameBufferMtl 不一定跟屏幕有关系，跟屏幕没有关系的就没有m_swapChain,  但是 m_mainFrameBuffer 一定跟view相关 具有 m_swapChain
+                
+                // bgfx::createFrameBuffer 可以创建 窗口无关(附件的纹理可外部给定attacment或者内部创建) 或者 窗口有关(窗口指针nwh)
 
-				if (!isValid(_fbh)
-				||  s_renderMtl->m_frameBuffers[_fbh.idx].m_swapChain)
+				if (!isValid(_fbh) // 给定的FrameBufferHandle无效,就直接渲染到 m_mainFrameBuffer
+				||  s_renderMtl->m_frameBuffers[_fbh.idx].m_swapChain) // fbh有效,并且对应的FrameBufferMtl是跟屏幕相关，有swapchain
 				{
-					SwapChainMtl* swapChain = !isValid(_fbh)
+					SwapChainMtl* swapChain = !isValid(_fbh) // kInvalidHandle 65535  如果这样的话，就直接用 main Framebuffer
 						? s_renderMtl->m_mainFrameBuffer.m_swapChain
 						: s_renderMtl->m_frameBuffers[_fbh.idx].m_swapChain
 						;
@@ -2078,9 +2145,9 @@ namespace bgfx { namespace mtl
 				writeMask |= (_state&BGFX_STATE_WRITE_B) ? MTLColorWriteMaskBlue  : 0;
 				writeMask |= (_state&BGFX_STATE_WRITE_A) ? MTLColorWriteMaskAlpha : 0;
 
-				for (uint32_t ii = 0; ii < (independentBlendEnable ? 1 : frameBufferAttachment); ++ii)
+				for (uint32_t ii = 0; ii < (independentBlendEnable ? 1 : frameBufferAttachment); ++ii) // 从0开始  如果是单独blend 这里只设置第一个
 				{
-					RenderPipelineColorAttachmentDescriptor drt = pd.colorAttachments[ii];
+					RenderPipelineColorAttachmentDescriptor drt = pd.colorAttachments[ii];  // 颜色附件的参数
 
 					drt.blendingEnabled = !!(BGFX_STATE_BLEND_MASK & _state);
 
@@ -2095,9 +2162,9 @@ namespace bgfx { namespace mtl
 					drt.writeMask = writeMask;
 				}
 
-				if (independentBlendEnable)
+				if (independentBlendEnable) // 单独blend ???
 				{
-					for (uint32_t ii = 1, rgba = _rgba; ii < frameBufferAttachment; ++ii, rgba >>= 11)
+					for (uint32_t ii = 1, rgba = _rgba; ii < frameBufferAttachment; ++ii, rgba >>= 11) // 多个framebuffer 如果分开设置blend方式的话 走这里
 					{
 						RenderPipelineColorAttachmentDescriptor drt = pd.colorAttachments[ii];
 
@@ -2128,7 +2195,7 @@ namespace bgfx { namespace mtl
 				bool attrSet[Attrib::Count] = {};
 
 				uint8_t stream = 0;
-				for (; stream < _numStreams; ++stream)
+				for (; stream < _numStreams; ++stream) // 可以有多个stream ?? vertexStream ??
 				{
 					const VertexLayout& layout = *_layouts[stream];
 					bool streamUsed = false;
@@ -2137,7 +2204,7 @@ namespace bgfx { namespace mtl
 						Attrib::Enum attr = Attrib::Enum(program.m_used[ii]);
 						if (attrSet[attr])
 							continue;
-						const uint32_t loc = program.m_attributes[attr];
+						const uint32_t loc = program.m_attributes[attr]; // 这个attribute 对应shader中的位置 attribute[[0]]
 
 						uint8_t num;
 						AttribType::Enum type;
@@ -2149,7 +2216,7 @@ namespace bgfx { namespace mtl
 						if (UINT16_MAX != layout.m_attributes[attr])
 						{
 							vertexDesc.attributes[loc].format      = s_attribType[type][num-1][normalized?1:0];
-							vertexDesc.attributes[loc].bufferIndex = stream+1;
+							vertexDesc.attributes[loc].bufferIndex = stream+1; // 这是因为buffer 0 是 uniform ??
 							vertexDesc.attributes[loc].offset      = layout.m_offset[attr];
 
 							BX_TRACE("attrib: %s format: %d offset: %d", s_attribName[attr], (int)vertexDesc.attributes[loc].format, (int)vertexDesc.attributes[loc].offset);
@@ -2159,12 +2226,12 @@ namespace bgfx { namespace mtl
 						}
 					}
 					if (streamUsed) {
-						vertexDesc.layouts[stream+1].stride       = layout.getStride();
-						vertexDesc.layouts[stream+1].stepFunction = MTLVertexStepFunctionPerVertex;
+						vertexDesc.layouts[stream+1].stride       = layout.getStride(); //当前这个layout的对齐  ??
+						vertexDesc.layouts[stream+1].stepFunction = MTLVertexStepFunctionPerVertex; // 没顶点步进 ??
 					}
 				}
 
-				for (uint32_t ii = 0; Attrib::Count != program.m_used[ii]; ++ii)
+				for (uint32_t ii = 0; Attrib::Count != program.m_used[ii]; ++ii)  // ????
 				{
 					Attrib::Enum attr = Attrib::Enum(program.m_used[ii]);
 					const uint32_t loc = program.m_attributes[attr];
@@ -2191,7 +2258,7 @@ namespace bgfx { namespace mtl
 					vertexDesc.layouts[stream+1].stepRate     = 1;
 				}
 
-				pd.vertexDescriptor = vertexDesc;
+				pd.vertexDescriptor = vertexDesc; // 顶点buffer描述符
 
 				{
 					RenderPipelineReflection reflection = NULL;
@@ -2199,11 +2266,14 @@ namespace bgfx { namespace mtl
 
 					if (NULL != reflection)
 					{
+                        // 这里会处理uniform参数
+                        // pipelineStateMtl会有m_vshConstantBuffer m_fshConstantBuffer 两个UniformBuffer 指令编码
+                        // 每次在draw之前需要设置哪些uniform变量(在MTLBuffer中的偏移 uniform在cpu端数据的句柄/来源)
 						processArguments(pso, reflection.vertexArguments, reflection.fragmentArguments);
 					}
 				}
 
-				m_pipelineStateCache.add(hash, pso);
+				m_pipelineStateCache.add(hash, pso); // 缓存这个pipelineState 只要pipelineStateDescripor等参数一样 就用同一个pipelineState
 				m_pipelineProgram.push_back({hash, _program});
 			}
 
@@ -2343,8 +2413,8 @@ namespace bgfx { namespace mtl
 		bool m_hasPixelFormatDepth32Float_Stencil8;
 		bool m_hasStoreActionStoreAndMultisampleResolve;
 
-		Buffer   m_uniformBuffer;
-		Buffer   m_uniformBuffers[BGFX_CONFIG_MAX_FRAME_LATENCY];
+		Buffer   m_uniformBuffer; // 所有shader的uniform变量同一使用这个??  里面包含 m_obj 是 MTLBuffer
+		Buffer   m_uniformBuffers[BGFX_CONFIG_MAX_FRAME_LATENCY]; // =3 RenderContext
 		uint32_t m_uniformBufferVertexOffset;
 		uint32_t m_uniformBufferFragmentOffset;
 
@@ -2359,10 +2429,10 @@ namespace bgfx { namespace mtl
 		ProgramMtl      m_program[BGFX_CONFIG_MAX_PROGRAMS];
 		TextureMtl      m_textures[BGFX_CONFIG_MAX_TEXTURES];
 		FrameBufferMtl  m_mainFrameBuffer;
-		FrameBufferMtl  m_frameBuffers[BGFX_CONFIG_MAX_FRAME_BUFFERS];
+		FrameBufferMtl  m_frameBuffers[BGFX_CONFIG_MAX_FRAME_BUFFERS]; // 128 fbo  可以渲染到其他的Fbo上??
 		VertexLayout    m_vertexLayouts[BGFX_CONFIG_MAX_VERTEX_LAYOUTS];
-		UniformRegistry m_uniformReg;
-		void*           m_uniforms[BGFX_CONFIG_MAX_UNIFORMS];
+		UniformRegistry m_uniformReg; // 名字+类型 --- 句柄  存在就代表有注册  执行命令createUniform , 在 processArgument 会根据shader(pipelineState)反射参数, 再判断是否是否有注册
+		void*           m_uniforms[BGFX_CONFIG_MAX_UNIFORMS]; // 512个uniform  createUniform 句柄对应的cpu分配的内存  按照大小 g_uniformTypeSize * 类型 16字节对齐 分配cpu buffer
 
 		struct PipelineProgram
 		{
@@ -2546,7 +2616,7 @@ namespace bgfx { namespace mtl
 		uint32_t instUsed = 0;
 		if (NULL != _vsh->m_function.m_obj)
 		{
-			for (MTLVertexAttribute* attrib in _vsh->m_function.m_obj.vertexAttributes)
+			for (MTLVertexAttribute* attrib in _vsh->m_function.m_obj.vertexAttributes) //  顶点着色器所有输入
 			{
 				if (attrib.active)
 				{
@@ -2554,9 +2624,9 @@ namespace bgfx { namespace mtl
 					uint32_t loc = (uint32_t)attrib.attributeIndex;
 					BX_TRACE("attr %s: %d", name, loc);
 
-					for (uint8_t ii = 0; ii < Attrib::Count; ++ii)
+					for (uint8_t ii = 0; ii < Attrib::Count; ++ii) // 顶点着色器最多有Attrib::Count个输入参数？
 					{
-						if (0 == bx::strCmp(s_attribName[ii],name) )
+						if (0 == bx::strCmp(s_attribName[ii],name) )  //s_attribName 顶点属性列表
 						{
 							m_attributes[ii] = loc;
 							m_used[used++] = ii;
@@ -2577,7 +2647,7 @@ namespace bgfx { namespace mtl
 		}
 
 		m_used[used] = Attrib::Count;
-		m_instanceData[instUsed] = UINT16_MAX;
+		m_instanceData[instUsed] = UINT16_MAX; // 0 ??
 	}
 
 	void ProgramMtl::destroy()
@@ -2654,7 +2724,7 @@ namespace bgfx { namespace mtl
 
 		bimg::ImageContainer imageContainer;
 
-		if (bimg::imageParse(imageContainer, _mem->data, _mem->size) )
+		if (bimg::imageParse(imageContainer, _mem->data, _mem->size) ) // imageContainer 包含从 _mem 中读取的图像
 		{
 			const bimg::ImageBlockInfo& blockInfo = getBlockInfo(bimg::TextureFormat::Enum(imageContainer.m_format) );
 			const uint8_t startLod = bx::min<uint8_t>(_skip, imageContainer.m_numMips-1);
@@ -2681,7 +2751,7 @@ namespace bgfx { namespace mtl
 			const bool convert = m_textureFormat != m_requestedFormat;
 			const uint8_t bpp  = bimg::getBitsPerPixel(bimg::TextureFormat::Enum(m_textureFormat) );
 
-			TextureDescriptor desc = s_renderMtl->m_textureDescriptor;
+			TextureDescriptor desc = s_renderMtl->m_textureDescriptor; // 拷贝一份初始的  然后修改 ??  NSCopying  [desc copy]  ??
 
 			if (1 < ti.numLayers)
 			{
@@ -2768,7 +2838,7 @@ namespace bgfx { namespace mtl
 
 				desc.storageMode = (MTLStorageMode)(false
 					|| writeOnly
-					|| bimg::isDepth(bimg::TextureFormat::Enum(m_textureFormat) )
+					|| bimg::isDepth(bimg::TextureFormat::Enum(m_textureFormat) ) // 如果是深度纹理 或者是 只允许GPU写的话  就只能是Private
 					?     2 /* MTLStorageModePrivate */
 					: (BX_ENABLED(BX_PLATFORM_IOS)
 						? 0 /* MTLStorageModeShared  */
@@ -2778,7 +2848,7 @@ namespace bgfx { namespace mtl
 				desc.usage = MTLTextureUsageShaderRead;
 				if (computeWrite)
 				{
-					desc.usage |= MTLTextureUsageShaderWrite;
+					desc.usage |= MTLTextureUsageShaderWrite; // shader会写这个纹理
 				}
 
 				if (renderTarget)
@@ -2935,9 +3005,9 @@ namespace bgfx { namespace mtl
 			data = temp;
 		}
 
-		if (NULL != s_renderMtl->m_renderCommandEncoder)
+		if (NULL != s_renderMtl->m_renderCommandEncoder) // 如果encoder不是空??  就直接 替换 用 MTLTexture::replaceRegion 替换
 		{
-			s_renderMtl->m_cmd.finish(true);
+			s_renderMtl->m_cmd.finish(true);  // command queue finsih ??
 
 			MTLRegion region =
 			{
@@ -2949,7 +3019,11 @@ namespace bgfx { namespace mtl
 		}
 		else
 		{
-			BlitCommandEncoder bce = s_renderMtl->getBlitCommandEncoder();
+            // 更新方式很不解
+            // 一种直接  用 MTLTexture::replaceRegion 替换 
+            // 一种要用 blit command + 临时的MTLTexture来拷贝
+            
+			BlitCommandEncoder bce = s_renderMtl->getBlitCommandEncoder(); // 如果没有render Command Encoder 就要创建 Blit来copy ??
 
 			TextureDescriptor desc = s_renderMtl->m_textureDescriptor;
 			desc.textureType = _depth > 1 ? MTLTextureType3D : MTLTextureType2D;
@@ -2971,14 +3045,14 @@ namespace bgfx { namespace mtl
 					;
 				desc.usage        = 0;
 			}
-
+             
 			Texture tempTexture = s_renderMtl->m_device.newTextureWithDescriptor(desc);
 			MTLRegion region =
 			{
 				{ 0,     0,      0     },
 				{ _rect.m_width, _rect.m_height, _depth },
 			};
-			tempTexture.replaceRegion(region, 0, 0, data, srcpitch, srcpitch * _rect.m_height);
+			tempTexture.replaceRegion(region, 0, 0, data, srcpitch, srcpitch * _rect.m_height); // 临时的 MTLTexture
 			bce.copyFromTexture(tempTexture, 0, 0,  MTLOriginMake(0,0,0), MTLSizeMake(_rect.m_width, _rect.m_height, _depth),
 								m_ptr, slice, _mip, MTLOriginMake(_rect.m_x, _rect.m_y, zz));
 			release(tempTexture);
@@ -3179,12 +3253,12 @@ namespace bgfx { namespace mtl
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
 		if (@available(macOS 10.13, *))
 		{
-			m_metalLayer.displaySyncEnabled = 0 != (_flags&BGFX_RESET_VSYNC);
+			m_metalLayer.displaySyncEnabled = 0 != (_flags&BGFX_RESET_VSYNC); // NO ??  layer是否将 它的更新 和 屏幕刷新帧率 同步起来
 		}
 #endif // __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
 #endif // BX_PLATFORM_OSX
 
-		m_metalLayer.drawableSize = CGSizeMake(_width, _height);
+		m_metalLayer.drawableSize = CGSizeMake(_width, _height);  // 设置CAMetalLayer的大小和格式
 		m_metalLayer.pixelFormat = (_flags & BGFX_RESET_SRGB_BACKBUFFER)
 			? MTLPixelFormatBGRA8Unorm_sRGB
 			: MTLPixelFormatBGRA8Unorm
@@ -3192,11 +3266,11 @@ namespace bgfx { namespace mtl
 
 		TextureDescriptor desc = s_renderMtl->m_textureDescriptor;
 
-		desc.textureType = sampleCount > 1 ? MTLTextureType2DMultisample : MTLTextureType2D;
+		desc.textureType = sampleCount > 1 ? MTLTextureType2DMultisample : MTLTextureType2D; // 深度模板纹理需要自己创建 layer不提供
 
 		if (s_renderMtl->m_hasPixelFormatDepth32Float_Stencil8)
 		{
-			desc.pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+			desc.pixelFormat = MTLPixelFormatDepth32Float_Stencil8; // Here
 		}
 		else
 		{
@@ -3205,17 +3279,40 @@ namespace bgfx { namespace mtl
 
 		desc.width  = _width;
 		desc.height = _height;
-		desc.depth  = 1;
-		desc.mipmapLevelCount = 1;
+		desc.depth  = 1;            // 纹理的尺寸  3D纹理
+		desc.mipmapLevelCount = 1;  // mipmap数量 ，默认就是1
 		desc.sampleCount = sampleCount;
-		desc.arrayLength = 1;
+		desc.arrayLength = 1;       // 数组纹理
 
 		if (s_renderMtl->m_iOS9Runtime
 		||  s_renderMtl->m_macOS11Runtime)
 		{
+            /*
+             
+             @enum MTLCPUCacheMode  描述 CPU对一个纹理资源的映射  使用何种 CPU缓存模式(CPU cache mode) 。
+             
+             @abstract Describes what CPU cache mode is used for the CPU's mapping of a texture resource.
+             
+             @constant MTLCPUCacheModeDefaultCache
+             The default cache mode for the system.
+             
+             系统的默认缓存模式。
+             
+             @constant MTLCPUCacheModeWriteCombined
+             Write combined memory is optimized for resources that the CPU will write into, but never read.  On some implementations, writes may bypass caches avoiding cache pollution, and reads perform very poorly.
+             
+             写入组合内存  针对 CPU将写入但从不读取的资源进行了优化。   在某些实现中，写入可能会绕过缓存以避免缓存污染，并且读取性能非常差。
+             
+            
+             @discussion
+             Applications should only investigate changing the cache mode if writing to normally cached buffers is known to cause performance issues due to cache pollution, as write combined memory can have surprising performance pitfalls.  Another approach is to use non-temporal stores to normally cached memory (STNP on ARMv8, _mm_stream_* on x86_64).
+             
+             如果已知写入”正常缓存的缓冲区“ 会由于 缓存污染 而 导致性能问题，应用程序应该只调查更改缓存模式，因为写入组合内存可能会出现令人惊讶的性能缺陷。 另一种方法是使用“非临时存储”到“通常缓存的内存”（ARMv8 上的 STNP，x86_64 上的 _mm_stream_*）。
+             
+             */
 			desc.cpuCacheMode = MTLCPUCacheModeDefaultCache;
 			desc.storageMode  = MTLStorageModePrivate;
-			desc.usage        = MTLTextureUsageRenderTarget;
+			desc.usage        = MTLTextureUsageRenderTarget; // 需要设置用途 只作为render target, 只在gpu访问(private)
 		}
 
 		if (NULL != m_backBufferDepth)
@@ -3232,7 +3329,7 @@ namespace bgfx { namespace mtl
 
 		if (s_renderMtl->m_hasPixelFormatDepth32Float_Stencil8)
 		{
-			m_backBufferStencil = m_backBufferDepth;
+			m_backBufferStencil = m_backBufferDepth; // 如果是D32S8格式。那么深度和模板纹理引用同样一个MTLTexture
 			retain(m_backBufferStencil);
 		}
 		else
@@ -3252,14 +3349,14 @@ namespace bgfx { namespace mtl
 			m_backBufferColorMsaa = s_renderMtl->m_device.newTextureWithDescriptor(desc);
 		}
 
-		bx::HashMurmur2A murmur;
+		bx::HashMurmur2A murmur; // 啥玩意  ?? framebuffer的参数 ???
 		murmur.begin();
 		murmur.add(1);
 		murmur.add( (uint32_t)m_metalLayer.pixelFormat);
 		murmur.add( (uint32_t)m_backBufferDepth.pixelFormat());
 		murmur.add( (uint32_t)m_backBufferStencil.pixelFormat());
 		murmur.add( (uint32_t)sampleCount);
-		_frameBuffer.m_pixelFormatHash = murmur.end();
+		_frameBuffer.m_pixelFormatHash = murmur.end();  // 这个就是传入 _frameBuffer 参数的作用
 	}
 
 	id <MTLTexture> SwapChainMtl::currentDrawableTexture()
@@ -3314,12 +3411,12 @@ namespace bgfx { namespace mtl
 
 		for (uint32_t ii = 0; ii < _num; ++ii)
 		{
-			const Attachment& at = _attachment[ii];
+			const Attachment& at = _attachment[ii]; // framebuffer 可能对应多个  Attachment ???
 			TextureHandle handle = at.handle;
 
 			if (isValid(handle) )
 			{
-				const TextureMtl& texture = s_renderMtl->m_textures[handle.idx];
+				const TextureMtl& texture = s_renderMtl->m_textures[handle.idx]; // attachmemtn中会给定纹理句柄，找到纹理
 
 				if (0 == m_width)
 				{
@@ -3329,17 +3426,19 @@ namespace bgfx { namespace mtl
 
 				if (bimg::isDepth(bimg::TextureFormat::Enum(texture.m_textureFormat) ) )
 				{
-					m_depthHandle = handle;
-					m_depthAttachment = at;
+					m_depthHandle = handle; // 如果是深度模板纹理格式的话，里面的handle是模板深度纹理句柄
+					m_depthAttachment = at; // 把深度模板纹理的 Attachment 保存下来
 				}
 				else
 				{
 					m_colorHandle[m_num] = handle;
 					m_colorAttachment[m_num] = at;
-					m_num++;
+					m_num++; // 颜色纹理的句柄
 				}
 			}
 		}
+        
+        // 后面都是计算 hash  重复使用资源
 
 		bx::HashMurmur2A murmur;
 		murmur.begin();
@@ -3368,7 +3467,11 @@ namespace bgfx { namespace mtl
 
 		murmur.add(1); // SampleCount
 
-		m_pixelFormatHash = murmur.end();
+		m_pixelFormatHash = murmur.end(); // 保存这个hash 用在RenderPassDescription重复使用 ??
+        
+        // 在swapchain resize的时候也会修改这个
+        
+        // 这种方式创建的FrameBufferMtl 是没有  m_swapChain 的（没有窗口句柄），实际上这里创建的FrameBuferMtl都是引用外部的资源
 	}
 
 	void FrameBufferMtl::create(uint16_t _denseIdx, void* _nwh, uint32_t _width, uint32_t _height, TextureFormat::Enum _format, TextureFormat::Enum _depthFormat)
@@ -3382,6 +3485,11 @@ namespace bgfx { namespace mtl
 		m_denseIdx  = _denseIdx;
 
 		m_swapChain->init(_nwh);
+        // 这种方式创建的 FrameBuferMtl 没有引用外部的资源（没有使用Attacment），
+        // 而是在 m_swapChain 中 获取UIView的CAMetalayer 和 创建深度模板纹理
+        
+        // init 只是 根据 窗口指针 获取CAMetalLayer
+        // resize 才会创建深度模板纹理这些，然后更新 FrameBufferMtl.m_pixelFormatHash
 	}
 
 	void FrameBufferMtl::postReset()
@@ -3534,7 +3642,7 @@ namespace bgfx { namespace mtl
 
 		_commandBuffer.addScheduledHandler(setTimestamp, &m_result[offset].m_begin);
 		_commandBuffer.addCompletedHandler(setTimestamp, &m_result[offset].m_end);
-		m_control.commit(1);
+		m_control.commit(1); // RingBufferControl ???
 	}
 
 	bool TimerQueryMtl::get()
@@ -3696,7 +3804,7 @@ namespace bgfx { namespace mtl
 
 		if (NULL == m_commandBuffer)
 		{
-			m_commandBuffer = m_cmd.alloc();
+			m_commandBuffer = m_cmd.alloc(); // CommandQueueMtl  MTLCommandQueue.commandBuffer
 		}
 
 		BGFX_MTL_PROFILER_BEGIN_LITERAL("rendererSubmit", kColorFrame);
@@ -3704,7 +3812,7 @@ namespace bgfx { namespace mtl
 		int64_t timeBegin = bx::getHPCounter();
 		int64_t captureElapsed = 0;
 
-		m_gpuTimer.addHandlers(m_commandBuffer);
+		m_gpuTimer.addHandlers(m_commandBuffer);  // 往command buffer addComplete 和 addScheduled 注册回调
 
 		if (m_blitCommandEncoder)
 		{
@@ -3834,7 +3942,7 @@ namespace bgfx { namespace mtl
 		if (0 == (_render->m_debug&BGFX_DEBUG_IFH) )
 		{
 			viewState.m_rect = _render->m_view[0].m_rect;
-			int32_t numItems = _render->m_numRenderItems;
+			int32_t numItems = _render->m_numRenderItems; // 多少个渲染点 ??
 
 			for (int32_t item = 0; item < numItems;)
 			{
@@ -3848,7 +3956,7 @@ namespace bgfx { namespace mtl
 					;
 
 				const uint32_t itemIdx       = _render->m_sortValues[item];
-				const RenderItem& renderItem = _render->m_renderItem[itemIdx];
+				const RenderItem& renderItem = _render->m_renderItem[itemIdx]; // Frame* _render  哪里来的???
 				const RenderBind& renderBind = _render->m_renderItemBind[itemIdx];
 				++item;
 
@@ -3910,7 +4018,7 @@ namespace bgfx { namespace mtl
 								&& height == viewRect.m_height
 								;
 
-							setFrameBuffer(renderPassDescriptor, fbh);
+							setFrameBuffer(renderPassDescriptor, fbh); // renderframe--submit 才会从MainFramebuffer.swapchain CAMetalayer.nextDrawable
 
 							if (clearWithRenderPass)
 							{
@@ -4099,7 +4207,7 @@ namespace bgfx { namespace mtl
 					{
 						currentProgram = key.m_program;
 
-						currentPso = getComputePipelineState(currentProgram);
+						currentPso = getComputePipelineState(currentProgram); // program切换了 ?? 重新获取 pipelineState
 
 						if (NULL == currentPso)
 						{
@@ -4229,7 +4337,7 @@ namespace bgfx { namespace mtl
 					BGFX_MTL_PROFILER_BEGIN(view, kColorDraw);
 				}
 
-				const RenderDraw& draw = renderItem.draw;
+				const RenderDraw& draw = renderItem.draw; // ?????
 
 				const bool hasOcclusionQuery = 0 != (draw.m_stateFlags & BGFX_STATE_INTERNAL_OCCLUSION_QUERY);
 				{
@@ -4376,7 +4484,10 @@ namespace bgfx { namespace mtl
 					blendFactor = draw.m_rgba;
 				}
 
-				bool programChanged = false;
+                //
+                // renderer Update Uniforms
+                //
+				bool programChanged = false; // 同一将外部调用 setUniformBuffer 的UniformBuffer里面的指令执行 更新到 RenderContextMtl::m_uniforms[UniformHandle.idx]
 				rendererUpdateUniforms(this, _render->m_uniformBuffer[draw.m_uniformIdx], draw.m_uniformBegin, draw.m_uniformEnd);
 
 				bool vertexStreamChanged = hasVertexStreamChanged(currentState, draw);
@@ -4414,7 +4525,7 @@ namespace bgfx { namespace mtl
 						streamMask >>= ntz;
 						idx         += ntz;
 
-						currentState.m_stream[idx].m_layoutHandle   = draw.m_stream[idx].m_layoutHandle;
+						currentState.m_stream[idx].m_layoutHandle   = draw.m_stream[idx].m_layoutHandle; // const RenderDraw& draw = renderItem.draw;
 						currentState.m_stream[idx].m_handle         = draw.m_stream[idx].m_handle;
 						currentState.m_stream[idx].m_startVertex    = draw.m_stream[idx].m_startVertex;
 
@@ -4507,13 +4618,13 @@ namespace bgfx { namespace mtl
 						commit(*vcb);
 					}
 
-					UniformBuffer* fcb = currentPso->m_fshConstantBuffer;
+					UniformBuffer* fcb = currentPso->m_fshConstantBuffer; // currentPso pipelineStateMtl
 					if (NULL != fcb)
 					{
 						commit(*fcb);
 					}
-
-					viewState.setPredefined<4>(this, view, *currentPso, _render, draw);
+                    // 这里直接根据viewState的状态 设置预制的参数   // const RenderDraw& draw = renderItem.draw;
+					viewState.setPredefined<4>(this, view, *currentPso, _render, draw); // 这里会往RenderContext::m_uniformBuffer 设置MVP矩阵 MVP矩阵从 viewState 中获取和设置
 
 					m_uniformBufferFragmentOffset += fragmentUniformBufferSize;
 					m_uniformBufferVertexOffset    = m_uniformBufferFragmentOffset;

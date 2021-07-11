@@ -807,7 +807,7 @@ namespace bgfx
 			, m_size(0)
 			, m_minCapacity(0)
 		{
-			resize();
+			resize(); // 构造时候都是0 所以 m_buffer = NULL
 			finish();
 		}
 
@@ -843,7 +843,7 @@ namespace bgfx
 			UpdateViewName,
 			InvalidateOcclusionQuery,
 			SetName,
-			End,
+			End,  // 上面放到 Frame.mCmdPre  后面的命令放到 Frame.mCmdPost
 			RendererShutdownEnd,
 			DestroyVertexLayout,
 			DestroyIndexBuffer,
@@ -861,7 +861,7 @@ namespace bgfx
 		void resize(uint32_t _capacity = 0)
 		{
 			m_capacity = bx::alignUp(bx::max(_capacity, m_minCapacity), 1024);
-			m_buffer = (uint8_t*)BX_REALLOC(g_allocator, m_buffer, m_capacity);
+			m_buffer = (uint8_t*)BX_REALLOC(g_allocator, m_buffer, m_capacity); // 65536个字节
 		}
 
 		void write(const void* _data, uint32_t _size)
@@ -943,7 +943,7 @@ namespace bgfx
 		void finish()
 		{
 			uint8_t cmd = End;
-			write(cmd);
+			write(cmd); // CommandBuffer写入一个End命令
 			m_size = m_pos;
 			m_pos = 0;
 
@@ -1320,9 +1320,9 @@ namespace bgfx
 		{
 			if (NULL != _mtx)
 			{
-				uint32_t first = reserve(&_num);
-				bx::memCopy(&m_cache[first], _mtx, sizeof(Matrix4)*_num);
-				return first;
+				uint32_t first = reserve(&_num); // 从 m_cache 拿到一个  原子
+				bx::memCopy(&m_cache[first], _mtx, sizeof(Matrix4)*_num); // 矩阵拷贝到cached
+				return first; // 返回cache中的索引
 			}
 
 			return 0;
@@ -1405,20 +1405,20 @@ namespace bgfx
 			const uint32_t structSize = sizeof(UniformBuffer)-sizeof(UniformBuffer::m_buffer);
 
 			uint32_t size = bx::alignUp(_size, 16);
-			void*    data = BX_ALLOC(g_allocator, size+structSize);
-			return BX_PLACEMENT_NEW(data, UniformBuffer)(size);
+			void*    data = BX_ALLOC(g_allocator, size+structSize); // UniformBuffer + UniformBuffer.m_buffer[_size]
+			return BX_PLACEMENT_NEW(data, UniformBuffer)(size); // 调用构造函数  size 表示 UniformBuffer.m_buffer 实际长度
 		}
 
 		static void destroy(UniformBuffer* _uniformBuffer)
 		{
-			_uniformBuffer->~UniformBuffer();
+			_uniformBuffer->~UniformBuffer(); // 主动调用析构函数
 			BX_FREE(g_allocator, _uniformBuffer);
 		}
 
 		static void update(UniformBuffer** _uniformBuffer, uint32_t _threshold = 64<<10, uint32_t _grow = 1<<20)
 		{
 			UniformBuffer* uniformBuffer = *_uniformBuffer;
-			if (_threshold >= uniformBuffer->m_size - uniformBuffer->m_pos)
+			if (_threshold >= uniformBuffer->m_size - uniformBuffer->m_pos) //
 			{
 				const uint32_t structSize = sizeof(UniformBuffer)-sizeof(UniformBuffer::m_buffer);
 				uint32_t size = bx::alignUp(uniformBuffer->m_size + _grow, 16);
@@ -1439,6 +1439,7 @@ namespace bgfx
 			return type|loc|num|copy;
 		}
 
+        // void RendererContextI::commit(UniformBuffer& _uniformBuffer)
 		static void decodeOpcode(uint32_t _opcode, UniformType::Enum& _type, uint16_t& _loc, uint16_t& _num, uint16_t& _copy)
 		{
 			const uint32_t type = (_opcode&kConstantOpcodeTypeMask) >> kConstantOpcodeTypeShift;
@@ -1458,12 +1459,12 @@ namespace bgfx
 
 			if (m_pos + _size < m_size)
 			{
-				bx::memCopy(&m_buffer[m_pos], _data, _size);
+				bx::memCopy(&m_buffer[m_pos], _data, _size); // buffer用来存什么 ??
 				m_pos += _size;
 			}
 		}
 
-		void write(uint32_t _value)
+		void write(uint32_t _value) // UniformType::End ? 还会写入这个 ??
 		{
 			write(&_value, sizeof(uint32_t) );
 		}
@@ -1500,11 +1501,13 @@ namespace bgfx
 
 		void finish()
 		{
-			write(UniformType::End);
+			write(UniformType::End); // 往buffer最后写入End  m_buffer存放无结构数据
 			m_pos = 0;
 		}
 
 		void writeUniform(UniformType::Enum _type, uint16_t _loc, const void* _value, uint16_t _num = 1);
+        
+        // void RenderContext::commit(UniformBuffer& _uniformBuffer)
 		void writeUniformHandle(UniformType::Enum _type, uint16_t _loc, UniformHandle _handle, uint16_t _num = 1);
 		void writeMarker(const char* _marker);
 
@@ -1556,10 +1559,10 @@ namespace bgfx
 		{
 			BX_ASSERT(isValid(_handle), "Uniform handle is invalid (name: %s)!", _name);
 			const uint32_t key = bx::hash<bx::HashMurmur2A>(_name);
-			m_uniforms.removeByKey(key);
-			m_uniforms.insert(key, _handle.idx);
+			m_uniforms.removeByKey(key);                 // 如果已经有的 名字+类型(我们自己加的)
+			m_uniforms.insert(key, _handle.idx);         // UniformRegistry::m_uniforms
 
-			UniformRegInfo& info = m_info[_handle.idx];
+			UniformRegInfo& info = m_info[_handle.idx]; // 句柄--UniformRegInfo(句柄??)
 			info.m_handle = _handle;
 
 			return info;
@@ -1826,7 +1829,7 @@ namespace bgfx
 
 	struct ShaderRef
 	{
-		UniformHandle* m_uniforms;
+		UniformHandle* m_uniforms; //记录shader中uniform的句柄 ??
 		String   m_name;
 		uint32_t m_hashIn;
 		uint32_t m_hashOut;
@@ -1844,7 +1847,7 @@ namespace bgfx
 	struct UniformRef
 	{
 		String            m_name;
-		UniformType::Enum m_type;
+		UniformType::Enum m_type; // 这个是对齐的类型
 		uint16_t          m_num;
 		int16_t           m_refCount;
 	};
@@ -2067,11 +2070,11 @@ namespace bgfx
 
 		void create(uint32_t _minResourceCbSize)
 		{
-			m_cmdPre.init(_minResourceCbSize);
-			m_cmdPost.init(_minResourceCbSize);
+			m_cmdPre.init(_minResourceCbSize);      // CommandBuffer Frame.m_cmdPre
+			m_cmdPost.init(_minResourceCbSize);     // CommandBuffer Frame.m_cmdPost
 
 			{
-				const uint32_t num = g_caps.limits.maxEncoders;
+				const uint32_t num = g_caps.limits.maxEncoders; // 同时可以有多少个encoder   Frame.m_uniformBuffer[?] ---8个 init.limit.maxEncoders的默认值
 
 				m_uniformBuffer = (UniformBuffer**)BX_ALLOC(g_allocator, sizeof(UniformBuffer*)*num);
 
@@ -2083,7 +2086,7 @@ namespace bgfx
 
 			reset();
 			start();
-			m_textVideoMem = BX_NEW(g_allocator, TextVideoMem);
+			m_textVideoMem = BX_NEW(g_allocator, TextVideoMem); // ????
 		}
 
 		void destroy()
@@ -2106,15 +2109,15 @@ namespace bgfx
 
 		void start()
 		{
-			m_perfStats.transientVbUsed = m_vboffset;
-			m_perfStats.transientIbUsed = m_iboffset;
+			m_perfStats.transientVbUsed = m_vboffset; // 0 vertex buffer 使用量 ??
+			m_perfStats.transientIbUsed = m_iboffset; // 0 index buffer 使用量  ??
 
-			m_frameCache.reset();
+			m_frameCache.reset(); // ????
 			m_numRenderItems = 0;
 			m_numBlitItems   = 0;
 			m_iboffset = 0;
-			m_vboffset = 0;
-			m_cmdPre.start();
+			m_vboffset = 0; // 重置为0
+			m_cmdPre.start(); // 只是吧CommandBuffer的游标pos size设置为0 没有插入指令
 			m_cmdPost.start();
 			m_capture = false;
 			m_numScreenShots = 0;
@@ -2122,7 +2125,7 @@ namespace bgfx
 
 		void finish()
 		{
-			m_cmdPre.finish();
+			m_cmdPre.finish(); // 写入end命令
 			m_cmdPost.finish();
 		}
 
@@ -2208,14 +2211,14 @@ namespace bgfx
 
 		void resetFreeHandles()
 		{
-			m_freeIndexBuffer.reset();
-			m_freeVertexLayout.reset();
-			m_freeVertexBuffer.reset();
+			m_freeIndexBuffer.reset();      // Frame::m_freeIndexBuffer   索引buffer ?? 队列 ?? 都是Handle句柄索引 集合 ??
+			m_freeVertexLayout.reset();     // Frame::m_freeVertexLayout  顶点属性布局 ?? 队列 ??
+			m_freeVertexBuffer.reset();     // Frame::m_freeVertexBuffer  顶点buffer ?? 队列 ??
 			m_freeShader.reset();
-			m_freeProgram.reset();
-			m_freeTexture.reset();
-			m_freeFrameBuffer.reset();
-			m_freeUniform.reset();
+			m_freeProgram.reset();          // class FreeHandle<ProgramHandle>.queue
+			m_freeTexture.reset();          // FreeHandle 是个集合类，里面queue是个 ProgramHandle 数组
+			m_freeFrameBuffer.reset();      // ProgramHandle 只是 struct ProgramHandle { uint16_t idx; };  就只有一个idx字段
+			m_freeUniform.reset();          // ProgramHandle handle = BGFX_INVALID_HANDLE;  INVALID_HANDLE对应的index 是 bgfx::kInvalidHandle 是UINT16_MAX
 		}
 
 		ViewId m_viewRemap[BGFX_CONFIG_MAX_VIEWS];
@@ -2336,7 +2339,10 @@ namespace bgfx
 			discard(BGFX_DISCARD_ALL);
 		}
 
-		void begin(Frame* _frame, uint8_t _idx)
+        // Context::m_frame数组中其中一个 此时应该和 Context::m_submit 一致
+        //
+        // 这个是Context::m_submit 或者 Context::m_render
+		void begin(Frame* _frame, uint8_t _idx) // _idx 开始编码时候 由外部统一分配的
 		{
 			m_frame = _frame;
 
@@ -2357,8 +2363,8 @@ namespace bgfx
 		{
 			if (_finalize)
 			{
-				UniformBuffer* uniformBuffer = m_frame->m_uniformBuffer[m_uniformIdx];
-				uniformBuffer->finish();
+				UniformBuffer* uniformBuffer = m_frame->m_uniformBuffer[m_uniformIdx]; // m_uniformIdx = 3 ?
+				uniformBuffer->finish(); // 这个算是encoder对应的 UniformBuffer  ---- Frame.m_uniformBuffer[encoder编号]
 
 				m_cpuTimeEnd = bx::getHPCounter();
 			}
@@ -2389,12 +2395,13 @@ namespace bgfx
 					, _handle.idx
 					, getName(_handle)
 					);
-				m_uniformSet.insert(_handle.idx);
+				m_uniformSet.insert(_handle.idx); // EncodeImpl 标记已经设置过这个handle  _handle.idx是_loc 在shader参数的偏移
 			}
 
+            // 当前Frame* m_frame 就是  Context::m_submit   Frame中对应分配给这个Encoder的UniformBuffer  m_uniformIdx
 			UniformBuffer::update(&m_frame->m_uniformBuffer[m_uniformIdx]);
 			UniformBuffer* uniformBuffer = m_frame->m_uniformBuffer[m_uniformIdx];
-			uniformBuffer->writeUniform(_type, _handle.idx, _value, _num);
+			uniformBuffer->writeUniform(_type, _handle.idx, _value, _num); // 编码指令   RenderContext::commit(UniformBuffer) 中执行
 		}
 
 		void setState(uint64_t _state, uint32_t _rgba)
@@ -2432,8 +2439,8 @@ namespace bgfx
 
 		uint32_t setTransform(const void* _mtx, uint16_t _num)
 		{
-			m_draw.m_startMatrix = m_frame->m_frameCache.m_matrixCache.add(_mtx, _num);
-			m_draw.m_numMatrices = _num;
+			m_draw.m_startMatrix = m_frame->m_frameCache.m_matrixCache.add(_mtx, _num); // 要把所有的变换矩阵 cache住 ??
+			m_draw.m_numMatrices = _num;  // 这个draw 用到矩阵的 在cache中的索引  和  这个draw需要的矩阵数目
 
 			return m_draw.m_startMatrix;
 		}
@@ -2693,7 +2700,7 @@ namespace bgfx
 		int64_t m_cpuTimeEnd;
 	};
 
-	struct VertexLayoutRef
+	struct VertexLayoutRef  // VertexLayoutRef  包含了 m_vertexLayoutMap 通过layout的hash来找 layout句柄 VertexLayoutHandle
 	{
 		VertexLayoutRef()
 		{
@@ -2701,9 +2708,10 @@ namespace bgfx
 
 		void init()
 		{
-			bx::memSet(m_refCount,                  0, sizeof(m_refCount)               );
-			bx::memSet(m_vertexBufferRef,        0xff, sizeof(m_vertexBufferRef)        );
-			bx::memSet(m_dynamicVertexBufferRef, 0xff, sizeof(m_dynamicVertexBufferRef) );
+			bx::memSet(m_refCount,                  0, sizeof(m_refCount)               );  // key是layouthandle句柄号(handle.idx) value是引用数目
+                                                                                            // m_vertexLayoutMap key是layout的hash value是layout句柄
+			bx::memSet(m_vertexBufferRef,        0xff, sizeof(m_vertexBufferRef)        );  // m_vertexBufferRef
+			bx::memSet(m_dynamicVertexBufferRef, 0xff, sizeof(m_dynamicVertexBufferRef) ); //
 		}
 
 		template <uint16_t MaxHandlesT>
@@ -2720,24 +2728,27 @@ namespace bgfx
 			m_vertexLayoutMap.reset();
 		}
 
-		VertexLayoutHandle find(uint32_t _hash)
+		VertexLayoutHandle find(uint32_t _hash) // VertexLayoutHandle findVertexLayout(const VertexLayout& _layout)
 		{
 			VertexLayoutHandle handle = { m_vertexLayoutMap.find(_hash) };
 			return handle;
 		}
 
-		void add(VertexLayoutHandle _layoutHandle, uint32_t _hash)
+		void add(VertexLayoutHandle _layoutHandle, uint32_t _hash) // 这里纯粹就是把 layouthandle的引用数目加1 并且把layout的hash和句柄建立映射
 		{
 			m_refCount[_layoutHandle.idx]++;
 			m_vertexLayoutMap.insert(_hash, _layoutHandle.idx);
 		}
 
-		void add(VertexBufferHandle _handle, VertexLayoutHandle _layoutHandle, uint32_t _hash)
+		void add(VertexBufferHandle _handle, VertexLayoutHandle _layoutHandle, uint32_t _hash) // 这里比上面多了，建立vertexBuffer句柄 和 laytout句柄的映射 m_vertexBufferRef
 		{
-			BX_ASSERT(m_vertexBufferRef[_handle.idx].idx == kInvalidHandle, "");
-			m_vertexBufferRef[_handle.idx] = _layoutHandle;
-			m_refCount[_layoutHandle.idx]++;
+			BX_ASSERT(m_vertexBufferRef[_handle.idx].idx == kInvalidHandle, ""); // 判断是否这个vertex buffer已经有layout对应了
+            
+			m_vertexBufferRef[_handle.idx] = _layoutHandle;             // m_vertexBufferRef 的 key是 句柄号 (m_vertexBufferHandle) value是layout的句柄
+			m_refCount[_layoutHandle.idx]++;                            // layout的引用统计 ??
 			m_vertexLayoutMap.insert(_hash, _layoutHandle.idx);
+            // 这里会重复加入 ??
+            // -- 对于不是单独创建 VertexLayout的 而是直接创建VertexBuffer 的 这里就有必要加入到m_vertexLayoutMap
 		}
 
 		void add(DynamicVertexBufferHandle _handle, VertexLayoutHandle _layoutHandle, uint32_t _hash)
@@ -2754,9 +2765,9 @@ namespace bgfx
 			{
 				m_refCount[_layoutHandle.idx]--;
 
-				if (0 == m_refCount[_layoutHandle.idx])
+				if (0 == m_refCount[_layoutHandle.idx]) // 如果引用计数为0 name就返回 有效的layout句柄
 				{
-					m_vertexLayoutMap.removeByHandle(_layoutHandle.idx);
+					m_vertexLayoutMap.removeByHandle(_layoutHandle.idx); // 通过值 在map中移除 对应 layout.hash -- layout.handle 项
 					return _layoutHandle;
 				}
 			}
@@ -2766,11 +2777,11 @@ namespace bgfx
 
 		VertexLayoutHandle release(VertexBufferHandle _handle)
 		{
-			VertexLayoutHandle layoutHandle = m_vertexBufferRef[_handle.idx];
+			VertexLayoutHandle layoutHandle = m_vertexBufferRef[_handle.idx]; // 通过buffer的句柄 找到 layout的句柄  为下一步减去layout的引用数目做准备
 			layoutHandle = release(layoutHandle);
-			m_vertexBufferRef[_handle.idx].idx = kInvalidHandle;
+			m_vertexBufferRef[_handle.idx].idx = kInvalidHandle; // m_vertexBuffRef 顶点buffer句柄 映射 的 layout句柄 改为 无效 kInvalidHandle
 
-			return layoutHandle;
+			return layoutHandle; // 如果layout已经没有使用了，这里会返回有效句柄
 		}
 
 		VertexLayoutHandle release(DynamicVertexBufferHandle _handle)
@@ -2785,7 +2796,7 @@ namespace bgfx
 		typedef bx::HandleHashMapT<BGFX_CONFIG_MAX_VERTEX_LAYOUTS*2> VertexLayoutMap;
 		VertexLayoutMap m_vertexLayoutMap;
 
-		uint16_t m_refCount[BGFX_CONFIG_MAX_VERTEX_LAYOUTS];
+		uint16_t m_refCount[BGFX_CONFIG_MAX_VERTEX_LAYOUTS]; // layout的引用统计 ??
 		VertexLayoutHandle m_vertexBufferRef[BGFX_CONFIG_MAX_VERTEX_BUFFERS];
 		VertexLayoutHandle m_dynamicVertexBufferRef[BGFX_CONFIG_MAX_DYNAMIC_VERTEX_BUFFERS];
 	};
@@ -2954,7 +2965,7 @@ namespace bgfx
 		virtual void destroyUniform(UniformHandle _handle) = 0;
 		virtual void requestScreenShot(FrameBufferHandle _handle, const char* _filePath) = 0;
 		virtual void updateViewName(ViewId _id, const char* _name) = 0;
-		virtual void updateUniform(uint16_t _loc, const void* _data, uint32_t _size) = 0;
+		virtual void updateUniform(uint16_t _loc, const void* _data, uint32_t _size) = 0; // 更新到RenderContext的 m_uniforms[loat]
 		virtual void invalidateOcclusionQuery(OcclusionQueryHandle _handle) = 0;
 		virtual void setMarker(const char* _marker, uint16_t _len) = 0;
 		virtual void setName(Handle _handle, const char* _name, uint16_t _len) = 0;
@@ -2966,7 +2977,8 @@ namespace bgfx
 	inline RendererContextI::~RendererContextI()
 	{
 	}
-
+    
+    //
 	void rendererUpdateUniforms(RendererContextI* _renderCtx, UniformBuffer* _uniformBuffer, uint32_t _begin, uint32_t _end);
 
 #if BGFX_CONFIG_DEBUG
@@ -3154,14 +3166,14 @@ namespace bgfx
 
 				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateIndexBuffer);
 				cmdbuf.write(handle);
-				cmdbuf.write(_mem);
+				cmdbuf.write(_mem); // 这个还没有释放 ，只是把命令和参数Memory 放到 命令队列中 
 				cmdbuf.write(_flags);
 
-				setDebugName(convert(handle) );
+				setDebugName(convert(handle) ); // 默认句柄的序号作为 buffer的调试名字
 			}
 			else
 			{
-				release(_mem);
+				release(_mem); // 即使不成功分配缓冲区 也会释放Memory
 			}
 
 			return handle;
@@ -3184,26 +3196,26 @@ namespace bgfx
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
 			BGFX_CHECK_HANDLE("destroyIndexBuffer", m_indexBufferHandle, _handle);
-			bool ok = m_submit->free(_handle); BX_UNUSED(ok);
+			bool ok = m_submit->free(_handle); BX_UNUSED(ok); // _handle 插入到 Frame* m_submit.m_freeIndexBuffer 中
 			BX_ASSERT(ok, "Index buffer handle %d is already destroyed!", _handle.idx);
 
-			IndexBuffer& ref = m_indexBuffers[_handle.idx];
-			ref.m_name.clear();
+			IndexBuffer& ref = m_indexBuffers[_handle.idx]; // IndexBuffer 也只是个名字 大小和 type
+			ref.m_name.clear(); // 把名字清除了 还是在 m_indexBuffers中
 
-			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::DestroyIndexBuffer);
-			cmdbuf.write(_handle);
+			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::DestroyIndexBuffer); // 这个还是Frame* m_submit  但是是mCmdPost 执行渲染后的命令
+			cmdbuf.write(_handle); // 删除index buffer 加入到命令中 _handle给定句柄
 		}
 
 		VertexLayoutHandle findVertexLayout(const VertexLayout& _layout)
 		{
-			VertexLayoutHandle layoutHandle = m_vertexLayoutRef.find(_layout.m_hash);
+			VertexLayoutHandle layoutHandle = m_vertexLayoutRef.find(_layout.m_hash); // 代表命令队列里面已经有创建这个layout的命令  ??
 
-			if (!isValid(layoutHandle) )
+			if (!isValid(layoutHandle) ) // ?? 如果之前后的话，就返回  没有的的话 创建并且到命令队列
 			{
 				layoutHandle.idx = m_layoutHandle.alloc();
 				if (!isValid(layoutHandle) )
 				{
-					return layoutHandle;
+					return layoutHandle; // 如果分配不了 直接返回 非法的
 				}
 
 				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateVertexLayout);
@@ -3218,7 +3230,7 @@ namespace bgfx
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			VertexLayoutHandle handle = findVertexLayout(_layout);
+			VertexLayoutHandle handle = findVertexLayout(_layout); //  findVertexLayout 会在没有的时候创建命令，并且创建handle返回
 			if (!isValid(handle) )
 			{
 				BX_TRACE("WARNING: Failed to allocate vertex layout handle (BGFX_CONFIG_MAX_VERTEX_LAYOUTS, max: %d).", BGFX_CONFIG_MAX_VERTEX_LAYOUTS);
@@ -3227,7 +3239,10 @@ namespace bgfx
 
 			m_vertexLayoutRef.add(handle, _layout.m_hash);
 
-			return handle;
+			return handle; // 返回句柄
+            
+            // 可以通过layout的hash，在m_vertexLayoutRef中找到句柄
+            // 但是没有通过 VertexLayoutHandle 找到 VertexLayout ?? 没有这样的需要 ??
 		}
 
 		BGFX_API_FUNC(void destroyVertexLayout(VertexLayoutHandle _handle) )
@@ -3247,7 +3262,7 @@ namespace bgfx
 
 			if (isValid(handle) )
 			{
-				VertexLayoutHandle layoutHandle = findVertexLayout(_layout);
+				VertexLayoutHandle layoutHandle = findVertexLayout(_layout); // 也即是VertexLayout必须原来已经在命令队列中 ? VertexLayoutHandle -- 不是 find会自动插入创建命令
 				if (!isValid(layoutHandle) )
 				{
 					BX_TRACE("WARNING: Failed to allocate vertex layout handle (BGFX_CONFIG_MAX_VERTEX_LAYOUTS, max: %d).", BGFX_CONFIG_MAX_VERTEX_LAYOUTS);
@@ -3256,18 +3271,21 @@ namespace bgfx
 				}
 
 				m_vertexLayoutRef.add(handle, layoutHandle, _layout.m_hash);
+                // 建立映射关系
+                // layout.m_hash    --> layoutHandle
+                // handle           --> layoutHandle
 
-				VertexBuffer& vb = m_vertexBuffers[handle.idx];
+				VertexBuffer& vb = m_vertexBuffers[handle.idx]; // 预先分配了4096个 ??  在命令 CommandBuffer::CreateVertexBuffer 处理的时候 也没有使用 ???
 				vb.m_size   = _mem->size;
-				vb.m_stride = _layout.m_stride;
+				vb.m_stride = _layout.m_stride; // VertexBuffer 有什么作用的 ?? 只是为了记录大小和对齐 和名字
 
-				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateVertexBuffer);
-				cmdbuf.write(handle);
+				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateVertexBuffer);  // 创建 CreateVertexBuffer 命令
+				cmdbuf.write(handle); // 顶点的句柄  m_vertexBufferHandle  只是在这个里面的一个索引
 				cmdbuf.write(_mem);
-				cmdbuf.write(layoutHandle);
+				cmdbuf.write(layoutHandle);  // 命令中写入参数，第三个参数是 顶点布局的句柄
 				cmdbuf.write(_flags);
 
-				setDebugName(convert(handle) );
+				setDebugName(convert(handle));// 这个也会往队列中键入 命令  CommandBuffer::SetName
 
 				return handle;
 			}
@@ -3296,13 +3314,17 @@ namespace bgfx
 
 			BGFX_CHECK_HANDLE("destroyVertexBuffer", m_vertexBufferHandle, _handle);
 			bool ok = m_submit->free(_handle); BX_UNUSED(ok);
+            // 把句柄 放到  m_submit.m_freeVertexBuffer
+            // Context::freeAllHandles 中会创建命令 删除这个vertexBuffer对应 vertexlayout的命令(假如vertexlayout的引用数目已经为0)
+            
 			BX_ASSERT(ok, "Vertex buffer handle %d is already destroyed!", _handle.idx);
 
 			VertexBuffer& ref = m_vertexBuffers[_handle.idx];
-			ref.m_name.clear();
+			ref.m_name.clear(); // VertexBuffer 有什么作用的 ??  只是把名字清除了 ??
 
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::DestroyVertexBuffer);
 			cmdbuf.write(_handle);
+            // 加入命令删除顶点buffer
 		}
 
 		void destroyVertexBufferInternal(VertexBufferHandle _handle)
@@ -3477,7 +3499,7 @@ namespace bgfx
 
 		void destroyDynamicIndexBufferInternal(DynamicIndexBufferHandle _handle)
 		{
-			DynamicIndexBuffer& dib = m_dynamicIndexBuffers[_handle.idx];
+			DynamicIndexBuffer& dib = m_dynamicIndexBuffers[_handle.idx]; // DynamicIndexBuffer 有句柄 开始和大小 偏移 ?
 
 			if (0 != (dib.m_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
 			{
@@ -3574,8 +3596,8 @@ namespace bgfx
 			const uint32_t size = bx::strideAlign<16>(_num*_layout.m_stride, _layout.m_stride)+_layout.m_stride;
 
 			const uint64_t ptr = (0 != (_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
-				? allocVertexBuffer(size, _flags)
-				: allocDynamicVertexBuffer(size, _flags)
+				? allocVertexBuffer(size, _flags) // 配置了CS可读可写 ??
+				: allocDynamicVertexBuffer(size, _flags) // 什么都没有配置，或者只配置了 cs可写(gpu不能更新)
 				;
 
 			if (ptr == NonLocalAllocator::kInvalidBlock)
@@ -3936,7 +3958,7 @@ namespace bgfx
 			if (isShaderType(magic, 'C')
 			&&  0 == (g_caps.supported & BGFX_CAPS_COMPUTE) )
 			{
-				BX_TRACE("Creating compute shader but compute is not supported!");
+				BX_TRACE("Creating compute shader but compute is not supported!"); // 创建的shader是compute类型 但是不支持compute shader
 				release(_mem);
 				return BGFX_INVALID_HANDLE;
 			}
@@ -3975,7 +3997,7 @@ namespace bgfx
 			}
 
 			uint16_t count;
-			bx::read(&reader, count, &err);
+			bx::read(&reader, count, &err); // struct Memory.data 某个字段 代表uniform变量数量
 
 			if (!err.isOk() )
 			{
@@ -3984,7 +4006,7 @@ namespace bgfx
 				return BGFX_INVALID_HANDLE;
 			}
 
-			ShaderHandle handle = { m_shaderHandle.alloc() };
+			ShaderHandle handle = { m_shaderHandle.alloc() }; // 分配shader的句柄
 
 			if (!isValid(handle) )
 			{
@@ -3993,7 +4015,7 @@ namespace bgfx
 				return BGFX_INVALID_HANDLE;
 			}
 
-			bool ok = m_shaderHashMap.insert(shaderHash, handle.idx);
+			bool ok = m_shaderHashMap.insert(shaderHash, handle.idx); // shader的hash 和 shader句柄  映射关系
 			BX_ASSERT(ok, "Shader already exists!"); BX_UNUSED(ok);
 
 			ShaderRef& sr = m_shaderRef[handle.idx];
@@ -4003,29 +4025,29 @@ namespace bgfx
 			sr.m_num      = 0;
 			sr.m_uniforms = NULL;
 
-			UniformHandle* uniforms = (UniformHandle*)alloca(count*sizeof(UniformHandle) );
+			UniformHandle* uniforms = (UniformHandle*)alloca(count*sizeof(UniformHandle) ); // 分配uniform句柄 并发送命令创建
 
 			for (uint32_t ii = 0; ii < count; ++ii)
 			{
 				uint8_t nameSize = 0;
-				bx::read(&reader, nameSize, &err);
+				bx::read(&reader, nameSize, &err); // 名字的长度 1个字节
 
 				char name[256];
-				bx::read(&reader, &name, nameSize, &err);
+				bx::read(&reader, &name, nameSize, &err); // uniform变量的名字  最多256个字节  根据nameSize
 				name[nameSize] = '\0';
 
 				uint8_t type = 0;
-				bx::read(&reader, type, &err);
+				bx::read(&reader, type, &err); // uniform变量的类型
 				type &= ~kUniformMask;
 
 				uint8_t num;
-				bx::read(&reader, num, &err);
+				bx::read(&reader, num, &err); //  unfirom变量数组元素数目   u_modelViewProj  num=1
 
 				uint16_t regIndex;
-				bx::read(&reader, regIndex, &err);
+				bx::read(&reader, regIndex, &err); // 这个目前没有作用 可能是结构体偏移??
 
 				uint16_t regCount;
-				bx::read(&reader, regCount, &err);
+				bx::read(&reader, regCount, &err); // 行数目
 
 				if (!isShaderVerLess(magic, 8) )
 				{
@@ -4039,15 +4061,16 @@ namespace bgfx
 					bx::read(&reader, texFormat);
 				}
 
-				PredefinedUniform::Enum predefined = nameToPredefinedUniformEnum(name);
+				PredefinedUniform::Enum predefined = nameToPredefinedUniformEnum(name); // 不是预定义的uniform变量 就要用命来创建UniformHandle
 				if (PredefinedUniform::Count == predefined && UniformType::End != UniformType::Enum(type) )
 				{
 					uniforms[sr.m_num] = createUniform(name, UniformType::Enum(type), regCount);
+                    // 注册uniformHandle 并且在RenderContextMtl::m_uniforms[?] 分配了cpu内存 用来存放 setUniform更新的unfirom值
 					sr.m_num++;
 				}
 			}
 
-			if (0 != sr.m_num)
+			if (0 != sr.m_num) // 存在非预定义的uniform变量  重新调整 sr.m_uniforms 的大小
 			{
 				uint32_t size = sr.m_num*sizeof(UniformHandle);
 				sr.m_uniforms = (UniformHandle*)BX_ALLOC(g_allocator, size);
@@ -4705,11 +4728,13 @@ namespace bgfx
 
 			_num  = bx::max<uint16_t>(1, _num);
 
+            //  Context::m_uniformHashMap 会记录名字 一样的名字 只会创建一次 也即是会认为 同名字的uniform变量 在不同的shader中的作用是一样的
+            //  我们自己的会加上type 作为唯一hash
 			uint16_t idx = m_uniformHashMap.find(bx::hash<bx::HashMurmur2A>(_name) );
-			if (kInvalidHandle != idx)
+			if (kInvalidHandle != idx) // 同一个名字的uniform, 会覆盖掉之前的
 			{
 				UniformHandle handle = { idx };
-				UniformRef& uniform = m_uniformRef[handle.idx];
+				UniformRef& uniform = m_uniformRef[handle.idx]; // m_uniformRef 记录原来对齐的类型
 				BX_ASSERT(uniform.m_type == _type
 					, "Uniform type mismatch (type: %d, expected %d)."
 					, _type
@@ -4726,7 +4751,7 @@ namespace bgfx
 					uniform.m_num  = bx::max<uint16_t>(uniform.m_num, _num);
 
 					CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateUniform);
-					cmdbuf.write(handle);
+					cmdbuf.write(handle); // 这个句柄会传入给 RenderContextMtl 对应好关系
 					cmdbuf.write(uniform.m_type);
 					cmdbuf.write(uniform.m_num);
 					uint8_t len = (uint8_t)bx::strLen(_name)+1;
@@ -4737,8 +4762,8 @@ namespace bgfx
 				++uniform.m_refCount;
 				return handle;
 			}
-
-			UniformHandle handle = { m_uniformHandle.alloc() };
+            
+			UniformHandle handle = { m_uniformHandle.alloc() }; // Context::m_uniformHandle
 
 			if (!isValid(handle) )
 			{
@@ -4748,7 +4773,7 @@ namespace bgfx
 
 			BX_TRACE("Creating uniform (handle %3d) %s", handle.idx, _name);
 
-			UniformRef& uniform = m_uniformRef[handle.idx];
+			UniformRef& uniform = m_uniformRef[handle.idx]; // bgfx::setUniform 会通过 句柄 找到  UniformRef  从而根据创建时指定的类型 拷贝数据
 			uniform.m_name.set(_name);
 			uniform.m_refCount = 1;
 			uniform.m_type = _type;
@@ -4758,7 +4783,7 @@ namespace bgfx
 			BX_ASSERT(ok, "Uniform already exists (name: %s)!", _name); BX_UNUSED(ok);
 
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateUniform);
-			cmdbuf.write(handle);
+			cmdbuf.write(handle);  // 这个句柄  会给到 render api 层  RenderContextMtl::createUniform
 			cmdbuf.write(_type);
 			cmdbuf.write(_num);
 			uint8_t len = (uint8_t)bx::strLen(_name)+1;
@@ -5043,23 +5068,23 @@ namespace bgfx
 			{
 				BGFX_PROFILER_SCOPE("bgfx/Render thread wait", 0xff2040ff);
 				int64_t start = bx::getHPCounter();
-				bool ok = m_renderSem.wait();
+				bool ok = m_renderSem.wait(); // 这里会等待渲染线程的信号量
 				BX_ASSERT(ok, "Semaphore wait failed."); BX_UNUSED(ok);
 				m_submit->m_waitRender = bx::getHPCounter() - start;
-				m_submit->m_perfStats.waitRender = m_submit->m_waitRender;
+				m_submit->m_perfStats.waitRender = m_submit->m_waitRender; // 记录frame线程等待render线程的耗时 
 			}
 		}
 
 		void encoderApiWait()
 		{
-			uint16_t numEncoders = m_encoderHandle->getNumHandles();
+			uint16_t numEncoders = m_encoderHandle->getNumHandles(); // _init.limits.maxEncoders 编码线程的数量
 
-			for (uint16_t ii = 1; ii < numEncoders; ++ii)
+			for (uint16_t ii = 1; ii < numEncoders; ++ii) // 这里就从1开始  如果只有1个直接跳过  不算 m_encoder0 m_encoder[0]
 			{
-				m_encoderEndSem.wait();
+				m_encoderEndSem.wait(); // 等待所有的encoder的end信号 
 			}
 
-			for (uint16_t ii = 0; ii < numEncoders; ++ii)
+			for (uint16_t ii = 0; ii < numEncoders; ++ii) // 这里就从0开始
 			{
 				uint16_t idx = m_encoderHandle->getHandleAt(ii);
 				m_encoderStats[ii].cpuTimeBegin = m_encoder[idx].m_cpuTimeBegin;
@@ -5069,7 +5094,7 @@ namespace bgfx
 			m_submit->m_perfStats.numEncoders = uint8_t(numEncoders);
 
 			m_encoderHandle->reset();
-			uint16_t idx = m_encoderHandle->alloc();
+			uint16_t idx = m_encoderHandle->alloc(); // 预先分配 0 
 			BX_ASSERT(0 == idx, "Internal encoder handle is not 0 (idx %d).", idx); BX_UNUSED(idx);
 		}
 
@@ -5108,19 +5133,19 @@ namespace bgfx
 
 		EncoderStats* m_encoderStats;
 		Encoder*      m_encoder0;
-		EncoderImpl*  m_encoder;
-		uint32_t      m_numEncoders;
+		EncoderImpl*  m_encoder;  // EncoderImpl 数组
+		uint32_t      m_numEncoders; // EncoderImpl 数组 元素个数
 		bx::HandleAlloc* m_encoderHandle;
 
-		Frame  m_frame[1+(BGFX_CONFIG_MULTITHREADED ? 1 : 0)];
-		Frame* m_render;
-		Frame* m_submit;
+		Frame  m_frame[1+(BGFX_CONFIG_MULTITHREADED ? 1 : 0)]; // 如果多线程 有两个 m_frame 切换
+		Frame* m_render; // 指向上面 m_frame数组其中一个
+		Frame* m_submit; // 指向上面 m_frame数组其中一个   如果 BGFX_CONFIG_MULTITHREADED 为false的话 那么这两个指向同一个m_frame[0]
 
 		uint64_t m_tempKeys[BGFX_CONFIG_MAX_DRAW_CALLS];
 		RenderItemCount m_tempValues[BGFX_CONFIG_MAX_DRAW_CALLS];
 
 		IndexBuffer  m_indexBuffers[BGFX_CONFIG_MAX_INDEX_BUFFERS];
-		VertexBuffer m_vertexBuffers[BGFX_CONFIG_MAX_VERTEX_BUFFERS];
+		VertexBuffer m_vertexBuffers[BGFX_CONFIG_MAX_VERTEX_BUFFERS]; // 预先分配了4096个 ??
 
 		DynamicIndexBuffer  m_dynamicIndexBuffers[BGFX_CONFIG_MAX_DYNAMIC_INDEX_BUFFERS];
 		DynamicVertexBuffer m_dynamicVertexBuffers[BGFX_CONFIG_MAX_DYNAMIC_VERTEX_BUFFERS];
@@ -5137,7 +5162,7 @@ namespace bgfx
 		NonLocalAllocator m_dynVertexBufferAllocator;
 		bx::HandleAllocT<BGFX_CONFIG_MAX_DYNAMIC_VERTEX_BUFFERS> m_dynamicVertexBufferHandle;
 
-		bx::HandleAllocT<BGFX_CONFIG_MAX_INDEX_BUFFERS> m_indexBufferHandle;
+		bx::HandleAllocT<BGFX_CONFIG_MAX_INDEX_BUFFERS> m_indexBufferHandle; // 一堆的句柄分配器 ??
 		bx::HandleAllocT<BGFX_CONFIG_MAX_VERTEX_LAYOUTS > m_layoutHandle;
 
 		bx::HandleAllocT<BGFX_CONFIG_MAX_VERTEX_BUFFERS> m_vertexBufferHandle;
@@ -5164,9 +5189,9 @@ namespace bgfx
 		FrameBufferRef  m_frameBufferRef[BGFX_CONFIG_MAX_FRAME_BUFFERS];
 		VertexLayoutRef m_vertexLayoutRef;
 
-		ViewId m_viewRemap[BGFX_CONFIG_MAX_VIEWS];
+		ViewId m_viewRemap[BGFX_CONFIG_MAX_VIEWS]; // 256  typedef uint16_t ViewId; @ bgfx.h
 		uint32_t m_seq[BGFX_CONFIG_MAX_VIEWS];
-		View m_view[BGFX_CONFIG_MAX_VIEWS];
+		View m_view[BGFX_CONFIG_MAX_VIEWS]; // 256  BX_ALIGN_DECL_CACHE_LINE(struct) View @ bgfx_p.h 主要保存FrameBuffer句柄 clear颜色 裁减区域 Matrix4投影和视图矩阵
 
 		float m_clearColor[BGFX_CONFIG_MAX_COLOR_PALETTE][4];
 

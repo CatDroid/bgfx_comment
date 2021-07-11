@@ -24,6 +24,10 @@ namespace stl = tinystl;
 #include "font_manager.h"
 #include "../cube_atlas.h"
 
+#ifdef BX_ASSERT
+#undef  BX_ASSERT
+#define BX_ASSERT(...)
+#endif
 
 class TrueTypeFont
 {
@@ -71,7 +75,7 @@ TrueTypeFont::~TrueTypeFont()
 
 bool TrueTypeFont::init(const uint8_t* _buffer, uint32_t _bufferSize, int32_t _fontIndex, uint32_t _pixelHeight, int16_t _widthPadding, int16_t _heightPadding)
 {
-	BX_ASSERT(m_font == NULL, "TrueTypeFont already initialized");
+	//BX_ASSERT(m_font == NULL, "TrueTypeFont already initialized");
 	BX_ASSERT( (_bufferSize > 256 && _bufferSize < 100000000), "TrueType buffer size is suspicious");
 	BX_ASSERT( (_pixelHeight > 4 && _pixelHeight < 128), "TrueType buffer size is suspicious");
 	BX_UNUSED(_bufferSize);
@@ -89,7 +93,7 @@ bool TrueTypeFont::init(const uint8_t* _buffer, uint32_t _bufferSize, int32_t _f
 
 FontInfo TrueTypeFont::getFontInfo()
 {
-	BX_ASSERT(m_font != NULL, "TrueTypeFont not initialized");
+	//BX_ASSERT(m_font != NULL, "TrueTypeFont not initialized");
 
 	int ascent;
 	int descent;
@@ -115,7 +119,7 @@ FontInfo TrueTypeFont::getFontInfo()
 
 bool TrueTypeFont::bakeGlyphAlpha(CodePoint _codePoint, GlyphInfo& _glyphInfo, uint8_t* _outBuffer)
 {
-	BX_ASSERT(m_font != NULL, "TrueTypeFont not initialized");
+	//BX_ASSERT(m_font != NULL, "TrueTypeFont not initialized");
 
 	int32_t ascent, descent, lineGap;
 	stbtt_GetFontVMetrics(&m_font, &ascent, &descent, &lineGap);
@@ -147,7 +151,7 @@ bool TrueTypeFont::bakeGlyphAlpha(CodePoint _codePoint, GlyphInfo& _glyphInfo, u
 
 bool TrueTypeFont::bakeGlyphDistance(CodePoint _codePoint, GlyphInfo& _glyphInfo, uint8_t* _outBuffer)
 {
-	BX_ASSERT(m_font != NULL, "TrueTypeFont not initialized");
+	//BX_ASSERT(m_font != NULL, "TrueTypeFont not initialized");
 
 	int32_t ascent, descent, lineGap;
 	stbtt_GetFontVMetrics(&m_font, &ascent, &descent, &lineGap);
@@ -290,7 +294,7 @@ TrueTypeHandle FontManager::createTtf(const uint8_t* _buffer, uint32_t _size)
 
 void FontManager::destroyTtf(TrueTypeHandle _handle)
 {
-	BX_ASSERT(bgfx::isValid(_handle), "Invalid handle used");
+	//BX_ASSERT(bgfx::isValid(_handle), "Invalid handle used");
 	delete m_cachedFiles[_handle.idx].buffer;
 	m_cachedFiles[_handle.idx].bufferSize = 0;
 	m_cachedFiles[_handle.idx].buffer = NULL;
@@ -300,7 +304,7 @@ void FontManager::destroyTtf(TrueTypeHandle _handle)
 FontHandle FontManager::createFontByPixelSize(TrueTypeHandle _ttfHandle, uint32_t _typefaceIndex, uint32_t _pixelSize, uint32_t _fontType,
 		uint16_t _glyphWidthPadding, uint16_t _glyphHeightPadding)
 {
-	BX_ASSERT(bgfx::isValid(_ttfHandle), "Invalid handle used");
+	//BX_ASSERT(bgfx::isValid(_ttfHandle), "Invalid handle used");
 
 	TrueTypeFont* ttf = new TrueTypeFont();
 	if (!ttf->init(m_cachedFiles[_ttfHandle.idx].buffer, m_cachedFiles[_ttfHandle.idx].bufferSize, _typefaceIndex, _pixelSize, _glyphWidthPadding, _glyphHeightPadding) )
@@ -327,7 +331,7 @@ FontHandle FontManager::createFontByPixelSize(TrueTypeHandle _ttfHandle, uint32_
 
 FontHandle FontManager::createScaledFontToPixelSize(FontHandle _baseFontHandle, uint32_t _pixelSize)
 {
-	BX_ASSERT(bgfx::isValid(_baseFontHandle), "Invalid handle used");
+	//BX_ASSERT(bgfx::isValid(_baseFontHandle), "Invalid handle used");
 	CachedFont& baseFont = m_cachedFonts[_baseFontHandle.idx];
 	FontInfo& fontInfo = baseFont.fontInfo;
 

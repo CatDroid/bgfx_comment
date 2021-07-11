@@ -268,7 +268,7 @@ namespace entry
 			m_handle.idx = UINT16_MAX;
 		}
 
-		WindowHandle m_handle;
+		WindowHandle m_handle; // 窗口的句柄 
 		uint32_t     m_width;
 		uint32_t     m_height;
 		MouseState   m_mouse;

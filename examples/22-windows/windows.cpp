@@ -327,10 +327,12 @@ public:
 		entry::WindowHandle handle = entry::createWindow(rand()%1280, rand()%720, 640, 480);
 		if (entry::isValid(handle) )
 		{
+            
 			char str[256];
 			bx::snprintf(str, BX_COUNTOF(str), "Window - handle %d", handle.idx);
 			entry::setWindowTitle(handle, str);
-			m_windows[handle.idx].m_handle = handle;
+            
+			m_windows[handle.idx].m_handle = handle; // 保存窗口的句柄
 		}
 	}
 

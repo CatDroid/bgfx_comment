@@ -115,7 +115,7 @@ struct OcornutImguiContext
 			ImDrawIdx* indices = (ImDrawIdx*)tib.data;
 			bx::memCopy(indices, drawList->IdxBuffer.begin(), numIndices * sizeof(ImDrawIdx) );
 
-			bgfx::Encoder* encoder = bgfx::begin();
+			bgfx::Encoder* encoder = bgfx::begin(); // imgui 直接用encoder-0 在bfgx::frame线程
 
 			uint32_t offset = 0;
 			for (const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd)

@@ -5263,14 +5263,14 @@ namespace bgfx { namespace gl
 
 		const bool writeOnly    = 0 != (m_flags&BGFX_TEXTURE_RT_WRITE_ONLY);
 		const bool computeWrite = 0 != (m_flags&BGFX_TEXTURE_COMPUTE_WRITE );
-		const bool srgb         = 0 != (m_flags&BGFX_TEXTURE_SRGB);
+		const bool srgb         = 0 != (m_flags&BGFX_TEXTURE_SRGB);  // 是否适用sRGB
 		const bool renderTarget = 0 != (m_flags&BGFX_TEXTURE_RT_MASK);
 		const bool textureArray = false
 			|| _target == GL_TEXTURE_2D_ARRAY
 			|| _target == GL_TEXTURE_CUBE_MAP_ARRAY
 			;
 
-		if (!writeOnly
+		if (!writeOnly // writeONly = true 只能GPU可写
 		|| (renderTarget && textureArray) )
 		{
 			GL_CHECK(glGenTextures(1, &m_id) );
@@ -5309,7 +5309,7 @@ namespace bgfx { namespace gl
 			const GLenum internalFmt = srgb
 				? s_textureFormat[m_textureFormat].m_internalFmtSrgb
 				: s_textureFormat[m_textureFormat].m_internalFmt
-				;
+				; // SRGB 和 RGB 的转换
 
 			if (textureArray)
 			{
@@ -5369,8 +5369,18 @@ namespace bgfx { namespace gl
 			{
 				GL_CHECK(glGenRenderbuffers(1, &m_rbo) );
 				BX_ASSERT(0 != m_rbo, "Failed to generate renderbuffer id.");
-				GL_CHECK(glBindRenderbuffer(GL_RENDERBUFFER, m_rbo) );
+				GL_CHECK(glBindRenderbuffer(GL_RENDERBUFFER, m_rbo) ); // 创建RBO 而不是 纹理  RBO 也可以作为framebuffer的附件
 
+                // 渲染缓冲对象(Renderbuffer objects
+                
+                // 渲染缓冲对象将所有渲染数据直接储存到它们的缓冲里，而不会进行针对特定纹理格式的任何转换，这样它们就成了一种快速可写的存储介质了
+                // 渲染缓冲对象通常是只写的，不能修改它们（就像获取纹理，不能写入纹理一样）。可以用glReadPixels函数去读取
+                
+                // 如果你永远都不需要从特定的缓冲中进行采样，渲染缓冲对象对特定缓冲是更明智的选择。
+                
+                // 如果哪天需要从比如颜色或深度值这样的特定缓冲采样数据的话，你最好还是使用纹理附件。
+                
+                
 				if (0 == msaaQuality)
 				{
 					GL_CHECK(glRenderbufferStorage(GL_RENDERBUFFER
